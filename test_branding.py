@@ -6,7 +6,7 @@ import general_embeds
 import suggestions
 import ticket
 import verificacion
-from common import BRAND_FOOTER, BRAND_LOGO, SERVER_EMOJIS, StudioEmbed
+from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS, StudioEmbed
 
 
 class BrandingTests(unittest.TestCase):
@@ -57,6 +57,25 @@ class BrandingTests(unittest.TestCase):
 
     def test_footer_uses_transparent_isotipo(self):
         self.assertEqual(BRAND_LOGO, 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png')
+
+    def test_emojis_are_unique_across_heading_description_and_fields(self):
+        emoji = SERVER_EMOJIS['pencil']
+        embed = StudioEmbed(title='Sugerencias', description=f'{emoji} Idea {emoji} Propuesta')
+        embed.add_field(name=f'{emoji} Detalles', value=f"{SERVER_EMOJIS['check']} Si {emoji} Nota")
+        data = embed.to_dict()
+        text = data['description'] + ''.join(field['name'] + field['value'] for field in data['fields'])
+        ids = CUSTOM_EMOJI_PATTERN.findall(text)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(len(ids), 6)
+        self.assertIn(SERVER_EMOJIS['check'], data['fields'][0]['value'])
+        self.assertEqual(data, embed.to_dict())
+
+    def test_exhausted_emoji_pool_preserves_words_without_duplicates(self):
+        embed = StudioEmbed(description=(SERVER_EMOJIS['document'] + ' Texto ') * 25)
+        text = embed.to_dict()['description']
+        ids = CUSTOM_EMOJI_PATTERN.findall(text)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(text.count('Texto'), 25)
 
 
 if __name__ == '__main__':

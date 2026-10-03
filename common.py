@@ -22,7 +22,15 @@ SERVER_EMOJIS = {
     'ban': '<:1002617024486322356:1555793553114931280>',
     'warning': '<:1418788295361429564:1552144656786002041>',
     'wrench': '<:12009211066101309941:1552328661338689636>',
+    'heart': '<:1366143527997935696:1555793537600192512>',
+    'announcement': '<:1418786420486836314:1552144609126125578>',
+    'badge': '<:975769597309517904:1555793557246189639>',
+    'community': '<:975766369503170630:1555793559565893712>',
+    'game': '<:1176227736625356971:1555793549713215560>',
+    'security': '<:1418788292278751264:1552144638138388570>',
+    'online': '<:1418709661737156829:1552151559985692752>',
 }
+CUSTOM_EMOJI_PATTERN = re.compile(r'<a?:[A-Za-z0-9_]+:(\d+)>')
 DEFAULT_EMOJI_PATTERN = re.compile(r'[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?(?:\u200d[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?)*')
 
 
@@ -42,6 +50,37 @@ def server_emoji_text(text, limit=4096):
         budget -= len(replacement)
         return replacement
     return DEFAULT_EMOJI_PATTERN.sub(replace, text)
+
+
+def unique_embed_emojis(data):
+    parts = []
+    for name, limit in (('title', 256), ('description', 4096)):
+        if name in data:
+            parts.append((data, name, limit))
+    for field in data.get('fields', []):
+        parts.extend(((field, 'name', 256), (field, 'value', 1024)))
+    reserved = {match.group(1) for part, name, _ in parts
+                for match in CUSTOM_EMOJI_PATTERN.finditer(part[name])}
+    used = set()
+    for part, name, limit in parts:
+        budget = limit - len(part[name])
+        def replace(match):
+            nonlocal budget
+            emoji_id = match.group(1)
+            if emoji_id not in used:
+                used.add(emoji_id)
+                return match.group()
+            for candidate in SERVER_EMOJIS.values():
+                candidate_id = CUSTOM_EMOJI_PATTERN.fullmatch(candidate).group(1)
+                growth = len(candidate) - len(match.group())
+                if candidate_id not in reserved and candidate_id not in used and growth <= budget:
+                    used.add(candidate_id)
+                    budget -= growth
+                    return candidate
+            # Keep the text when no unused server emoji fits.
+            budget += len(match.group())
+            return ''
+        part[name] = CUSTOM_EMOJI_PATTERN.sub(replace, part[name])
 
 
 class StudioEmbed(discord.Embed):
@@ -81,6 +120,7 @@ class StudioEmbed(discord.Embed):
                 data['description'] = combined
             else:
                 data['title'] = DEFAULT_EMOJI_PATTERN.sub('', self.title).strip()
+        unique_embed_emojis(data)
         return data
 
     def set_footer(self, *, text=None, icon_url=None):
