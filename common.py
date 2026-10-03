@@ -10,7 +10,7 @@ from discord import app_commands
 
 DATA_DIR = Path("data")
 BRAND_FOOTER = '© Elyxium Studio Copyright 2026'
-BRAND_LOGO = 'https://cdn.discordapp.com/avatars/1418452578102153226/0511c1a0b2562146e0f4cc69aa9cea02.png'
+BRAND_LOGO = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png'
 
 
 class StudioEmbed(discord.Embed):
