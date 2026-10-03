@@ -239,16 +239,31 @@ class TicketCategorySelect(discord.ui.Select):
         super().__init__(placeholder="Selecciona una categoría...", min_values=1, max_values=1, options=options, custom_id="ticket_category_select")
 
     async def callback(self, interaction: discord.Interaction):
+        if interaction.guild is None:
+            await interaction.response.send_message('Usa tickets dentro del servidor.', ephemeral=True)
+            return
+        key = (interaction.guild.id, interaction.user.id)
+        pending = getattr(interaction.client, '_pending_tickets', None)
+        if pending is None:
+            pending = interaction.client._pending_tickets = set()
+        if key in pending:
+            await interaction.response.send_message('Tu ticket ya se esta creando.', ephemeral=True)
+            return
         # Verificar si el usuario ya tiene un ticket abierto
         for channel_id, ticket_info in active_tickets.items():
             if ticket_info['user_id'] == interaction.user.id:
-                channel = interaction.guild.get_channel(channel_id)
+                channel = interaction.guild.get_channel(int(channel_id))
                 if channel:
                     await interaction.response.send_message(f"❌ Ya tienes un ticket abierto: {channel.mention}", ephemeral=True)
                     return
         
         category = self.values[0]
-        await self.create_ticket(interaction, category)
+        pending.add(key)
+        try:
+            await interaction.response.defer(ephemeral=True)
+            await self.create_ticket(interaction, category)
+        finally:
+            pending.discard(key)
 
     async def create_ticket(self, interaction: discord.Interaction, category: str):
         guild = interaction.guild
@@ -295,12 +310,12 @@ class TicketCategorySelect(discord.ui.Select):
                 mention_text += f" {support_role.mention}"
             
             await ticket_channel.send(content=mention_text, embed=embed, view=view)
-            await interaction.response.send_message(f"✅ Ticket creado exitosamente: {ticket_channel.mention}", ephemeral=True)
+            await interaction.followup.send(f"✅ Ticket creado exitosamente: {ticket_channel.mention}", ephemeral=True)
             
         except discord.Forbidden:
-            await interaction.response.send_message("❌ No tengo permisos para crear canales de tickets.", ephemeral=True)
+            await interaction.followup.send("❌ No tengo permisos para crear canales de tickets.", ephemeral=True)
         except Exception as e:
-            await interaction.response.send_message(f"❌ Error al crear el ticket: {e}", ephemeral=True)
+            await interaction.followup.send('No se pudo completar el ticket. Contacta al staff.', ephemeral=True)
 
     def create_category_embed(self, category: str, user: discord.Member):
         category_info = {
@@ -368,7 +383,7 @@ class TicketControlView(discord.ui.View):
         channel = interaction.channel
         messages = []
         
-        async for message in channel.history(limit=None, oldest_first=True):
+        async for message in channel.history(limit=5000, oldest_first=True):
             timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
             content = message.content or "[Contenido multimedia/embed]"
             messages.append(f"[{timestamp}] {message.author}: {content}")
@@ -390,6 +405,15 @@ class ConfirmCloseView(discord.ui.View):
 
     @discord.ui.button(label="✅ Confirmar", style=discord.ButtonStyle.success)
     async def confirm_close(self, interaction: discord.Interaction, button: discord.ui.Button):
+        info = active_tickets.get(self.channel_id)
+        support = interaction.guild.get_role(SUPPORT_ROLE_ID) if interaction.guild else None
+        if not info or interaction.channel_id != self.channel_id or not (
+            interaction.user.guild_permissions.administrator
+            or (support and support in interaction.user.roles)
+            or info['user_id'] == interaction.user.id
+        ):
+            await interaction.response.send_message('No tienes permiso para cerrar este ticket.', ephemeral=True)
+            return
         channel = interaction.channel
         
         if self.channel_id in active_tickets:

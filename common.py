@@ -40,6 +40,8 @@ def write_json(path, data):
         json.dump(data, file, ensure_ascii=False, indent=2)
 
     os.replace(temp_path, file_path)
+    from storage import storage
+    storage.enqueue(file_path, data)
 
 
 def parse_hex_color(color, fallback=discord.Color.blue()):
@@ -54,6 +56,8 @@ def parse_hex_color(color, fallback=discord.Color.blue()):
 
 def admin_app_check(admin_role_id):
     def predicate(interaction: discord.Interaction):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+            return False
         if interaction.user.guild_permissions.administrator:
             return True
         return any(role.id == admin_role_id for role in getattr(interaction.user, "roles", []))

@@ -8,7 +8,7 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Sistema de tickets con opciones configurables.
 - Sistema de verificacion con captcha.
 - Captcha con imagen personalizada, fuente `assets/Minecraft.ttf` y fondo configurable.
-- Persistencia en archivos JSON dentro de `data/`.
+- Persistencia MySQL asincrona con copias JSON locales en `data/`.
 - Sincronizacion de comandos slash global y por servidor.
 
 ## Requisitos
@@ -33,6 +33,11 @@ ADMIN_ROLE_ID=0
 SUPPORT_ROLE_ID=0
 TICKET_CATEGORY_ID=0
 TRANSCRIPT_CHANNEL_ID=0
+MYSQL_HOST=db-us.supercores.host
+MYSQL_PORT=3306
+MYSQL_DATABASE=s3510_config-bot
+MYSQL_USER=u3510_LXJHlxKhPd
+MYSQL_PASSWORD=tu_password
 ```
 
 `ADMIN_ROLE_ID` puede quedar en `0` si solo quieres usar permisos de administrador de Discord.
@@ -42,7 +47,7 @@ TRANSCRIPT_CHANNEL_ID=0
 Startup recomendado:
 
 ```bash
-if [[ -d .git ]] && [[ "${AUTO_UPDATE}" == "1" ]]; then git pull; fi; pip install -U --prefix .local "discord.py>=2.3.0" "python-dotenv>=1.0.0" "Pillow>=10.0.0"; /usr/local/bin/python /home/container/main.py
+if [[ -d .git ]] && [[ "${AUTO_UPDATE}" == "1" ]]; then git pull --ff-only; fi; pip install --prefix .local -r /home/container/requirements.txt && /usr/local/bin/python /home/container/main.py
 ```
 
 Variables recomendadas:
@@ -59,6 +64,21 @@ PY_FILE=main.py
 Si el servidor ya fue subido manualmente y no tiene `.git`, usa reinstall/clone desde Pterodactyl o clona el repo manualmente. Antes de reinstalar, guarda copia de `.env`, `data/` y `assets/` si contienen cambios privados.
 
 ## Archivos importantes
+
+`storage.py` crea la tabla `bot_documents` automaticamente. En el primer inicio,
+importa los JSON existentes sin reemplazar documentos ya almacenados en MySQL.
+En siguientes inicios MySQL restaura las copias locales. Los cambios se escriben
+en JSON y se sincronizan en segundo plano; si MySQL falla durante una escritura,
+se reintenta. Con MySQL configurado, un fallo al conectar durante el arranque
+impide iniciar el bot para evitar usar datos antiguos. Sin MYSQL_HOST se usa JSON.
+El usuario MySQL necesita SELECT, INSERT, UPDATE y CREATE en esta base.
+Ejecuta una sola instancia del bot por base de datos: este almacenamiento de
+documentos y los bloqueos de tickets no coordinan varias instancias.
+
+El captcha admite cinco intentos por codigo, vence a los 180 segundos y esta
+vinculado al usuario, servidor y rol. El boton no vuelve a enviar un codigo activo.
+Las imagenes remotas solo admiten HTTPS de Cloudinary o CDN de Discord, sin
+redirecciones y con limite de 8 MiB. Los transcripts contienen hasta 5000 mensajes.
 
 - `main.py`: arranque del bot y carga de sistemas.
 - `general_embeds.py`: comandos generales de embeds.

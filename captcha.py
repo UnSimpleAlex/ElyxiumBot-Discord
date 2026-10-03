@@ -1,12 +1,13 @@
 import discord
 from discord import ui
 import os
-import random
+import secrets
+import hmac
 import string
 import time
 import io
-import ssl
-import urllib.request
+from pathlib import Path
+from urllib.parse import urlparse
 from datetime import datetime, timedelta
 import aiohttp
 
@@ -68,7 +69,7 @@ captcha_image_config = {
 
 def generate_code():
     """Genera un código alfanumérico de 6 caracteres"""
-    return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    return ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(6))
 
 def save_captcha_codes():
     """Guarda los códigos de captcha"""
@@ -248,6 +249,9 @@ async def _load_image_bytes(source):
         return None
 
     if os.path.exists(source):
+        asset_root = Path('assets').resolve()
+        if not Path(source).resolve().is_relative_to(asset_root):
+            return None
         try:
             with open(source, "rb") as f:
                 return f.read()
@@ -255,51 +259,28 @@ async def _load_image_bytes(source):
             print(f"❌ Error leyendo fondo captcha local: {e}")
             return None
 
+    parsed = urlparse(source)
+    allowed_hosts = {'res.cloudinary.com', 'cdn.discordapp.com', 'media.discordapp.net'}
+    if parsed.scheme != 'https' or parsed.hostname not in allowed_hosts or parsed.port not in (None, 443):
+        return None
+
     try:
         headers = {"User-Agent": "ElyxiumStudioBot/1.0"}
         timeout = aiohttp.ClientTimeout(total=15)
         async with aiohttp.ClientSession(headers=headers, timeout=timeout) as session:
-            async with session.get(source) as response:
+            async with session.get(source, allow_redirects=False) as response:
                 if response.status == 200:
-                    data = await response.read()
+                    data = bytearray()
+                    async for chunk in response.content.iter_chunked(65536):
+                        data.extend(chunk)
+                        if len(data) > 8 * 1024 * 1024:
+                            return None
                     print(f"✅ Fondo captcha descargado con aiohttp: {len(data)} bytes")
-                    return data
+                    return bytes(data)
                 print(f"❌ Fondo captcha respondió HTTP {response.status}: {source}")
     except Exception as e:
         print(f"❌ Error descargando fondo captcha: {e}")
 
-    try:
-        connector = aiohttp.TCPConnector(ssl=False)
-        headers = {"User-Agent": "ElyxiumStudioBot/1.0"}
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(connector=connector, headers=headers, timeout=timeout) as session:
-            async with session.get(source) as response:
-                if response.status == 200:
-                    data = await response.read()
-                    print(f"✅ Fondo captcha descargado con aiohttp sin SSL estricto: {len(data)} bytes")
-                    return data
-                print(f"❌ Fondo captcha respondió HTTP {response.status} sin SSL estricto: {source}")
-    except Exception as e:
-        print(f"❌ Error descargando fondo captcha sin SSL estricto: {e}")
-
-    try:
-        request = urllib.request.Request(
-            source,
-            headers={
-                "User-Agent": "ElyxiumStudioBot/1.0",
-                "Accept": "image/png,image/*;q=0.9,*/*;q=0.8",
-            },
-        )
-        context = ssl._create_unverified_context()
-        with urllib.request.urlopen(request, timeout=15, context=context) as response:
-            status = getattr(response, "status", 200)
-            if status == 200:
-                data = response.read()
-                print(f"✅ Fondo captcha descargado con urllib: {len(data)} bytes")
-                return data
-            print(f"❌ Fondo captcha respondió HTTP {status} con urllib: {source}")
-    except Exception as e:
-        print(f"❌ Error descargando fondo captcha con urllib: {e}")
     return None
 
 async def build_captcha_image_file(result):
@@ -319,8 +300,8 @@ async def build_captcha_image_file(result):
         print("❌ Pillow no está instalado. Instala requirements.txt para generar imágenes captcha.")
         return None
 
-    width = int(captcha_image_config.get("width") or 900)
-    height = int(captcha_image_config.get("height") or 300)
+    width = max(1, min(4096, int(captcha_image_config.get("width") or 900)))
+    height = max(1, min(2048, int(captcha_image_config.get("height") or 300)))
     background_url = captcha_image_config.get("background_url") or captcha_embed_config.get("image_url")
     background_bytes = await _load_image_bytes(background_url)
     if not background_bytes and captcha_image_config.get("fallback_background_url"):
@@ -337,7 +318,7 @@ async def build_captcha_image_file(result):
         print("ℹ️ No se encontró fondo captcha; usando fondo simple.")
         image = Image.new("RGBA", (width, height), (25, 28, 35, 255))
 
-    font_size = int(captcha_image_config.get("font_size") or 64)
+    font_size = max(8, min(256, int(captcha_image_config.get("font_size") or 64)))
 
     box_x = int(captcha_image_config.get("x") or 0)
     box_y = int(captcha_image_config.get("y") or 0)
@@ -532,7 +513,7 @@ def clean_expired_codes():
         save_captcha_codes()
         print(f"🧹 {len(expired)} códigos expirados eliminados")
 
-def create_captcha_code(user_id: str):
+def create_captcha_code(user_id: str, guild_id=None, role_id=None):
     """Crea un código de captcha para un usuario"""
     clean_expired_codes()
     
@@ -553,7 +534,8 @@ def create_captcha_code(user_id: str):
     captcha_codes[user_id] = {
         'code': code,
         'timestamp': time.time(),
-        'used': False
+        'used': False,
+        'guild_id': guild_id, 'role_id': role_id, 'attempts': 0
     }
     
     save_captcha_codes()
@@ -565,7 +547,7 @@ def create_captcha_code(user_id: str):
         'expires_in': 180  # 3 minutos
     }
 
-def verify_captcha_code(user_id: str, code: str):
+def verify_captcha_code(user_id: str, code: str, guild_id=None, role_id=None):
     """Verifica un código de captcha"""
     clean_expired_codes()
     
@@ -576,6 +558,10 @@ def verify_captcha_code(user_id: str, code: str):
         }
     
     data = captcha_codes[user_id]
+    if guild_id is not None and (data.get('guild_id') != guild_id or data.get('role_id') != role_id):
+        return {'success': False, 'message': 'El codigo no corresponde a este servidor o rol.'}
+    if data.get('attempts', 0) >= 5:
+        return {'success': False, 'message': 'Limite de intentos alcanzado. Espera a que expire el codigo.'}
     
     # Verificar si ya fue usado
     if data.get('used', False):
@@ -595,7 +581,8 @@ def verify_captcha_code(user_id: str, code: str):
         }
     
     # Verificar código
-    if data['code'].upper() == code.upper():
+    data['attempts'] = data.get('attempts', 0) + 1
+    if hmac.compare_digest(data['code'].upper(), code.strip().upper()):
         captcha_codes[user_id]['used'] = True
         save_captcha_codes()
         return {
@@ -603,6 +590,7 @@ def verify_captcha_code(user_id: str, code: str):
             'message': 'Código verificado correctamente.'
         }
     else:
+        save_captcha_codes()
         return {
             'success': False,
             'message': 'Código incorrecto. Intenta nuevamente.'
@@ -625,11 +613,15 @@ class CaptchaModal(ui.Modal):
         self.add_item(self.code_input)
     
     async def on_submit(self, interaction: discord.Interaction):
+        if interaction.user.id != self.user.id or interaction.guild is None or interaction.guild.id != self.role.guild.id:
+            await interaction.response.send_message('Esta verificacion no te pertenece.', ephemeral=True)
+            return
+        await interaction.response.defer(ephemeral=True)
         user_id = str(self.user.id)
         code = self.code_input.value
         
         # Verificar código
-        result = verify_captcha_code(user_id, code)
+        result = verify_captcha_code(user_id, code, interaction.guild.id, self.role.id)
         
         if result['success']:
             try:
@@ -643,15 +635,15 @@ class CaptchaModal(ui.Modal):
                 embed.set_footer(text="Bienvenido a la comunidad")
                 embed.timestamp = discord.utils.utcnow()
                 
-                await interaction.response.send_message(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed, ephemeral=True)
                 
             except discord.Forbidden:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     "❌ Error: El bot no tiene permisos para asignar roles.",
                     ephemeral=True
                 )
             except Exception as e:
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"❌ Error al asignar el rol: {e}",
                     ephemeral=True
                 )
@@ -669,7 +661,7 @@ class CaptchaModal(ui.Modal):
                     inline=False
                 )
             
-            await interaction.response.send_message(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 def setup_captcha_api():
     """Configura endpoints para la API web"""

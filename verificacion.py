@@ -163,6 +163,9 @@ class VerificationView(discord.ui.View):
     
     @discord.ui.button(label="Verificar", style=discord.ButtonStyle.success, custom_id="verify_button")
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.guild is None or not isinstance(interaction.user, discord.Member):
+            await interaction.response.send_message('Usa este boton dentro del servidor.', ephemeral=True)
+            return
         role = interaction.guild.get_role(self.role_id)
         if not role:
             await interaction.response.send_message("❌ No se pudo encontrar el rol de verificación.", ephemeral=True)
@@ -177,7 +180,10 @@ class VerificationView(discord.ui.View):
             from captcha import create_captcha_code, build_captcha_embed_message, build_captcha_prompt_embed
 
             await interaction.response.defer(ephemeral=True)
-            result = create_captcha_code(str(interaction.user.id))
+            result = create_captcha_code(str(interaction.user.id), interaction.guild.id, role.id)
+            if not result['success']:
+                await interaction.followup.send(result['message'], ephemeral=True)
+                return
             captcha_embed, captcha_file = await build_captcha_embed_message(interaction.user, interaction.guild, result)
             dm_sent = False
 
@@ -757,4 +763,12 @@ def setup(bot):
         if isinstance(error, app_commands.MissingPermissions):
             await interaction.response.send_message("❌ Necesitas permisos de administrador para usar este comando.", ephemeral=True)
         else:
-            raise error
+            import logging
+            logging.error('Slash command failed', exc_info=(type(error), error, error.__traceback__))
+            try:
+                if interaction.response.is_done():
+                    await interaction.followup.send('No se pudo completar el comando. Contacta al staff.', ephemeral=True)
+                else:
+                    await interaction.response.send_message('No se pudo completar el comando. Contacta al staff.', ephemeral=True)
+            except discord.HTTPException:
+                pass

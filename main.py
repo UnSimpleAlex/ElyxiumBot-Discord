@@ -8,6 +8,7 @@ import general_embeds
 import ticket
 import verificacion
 from common import configure_console, ensure_data_dir
+from storage import storage
 
 
 configure_console()
@@ -36,9 +37,11 @@ class Bot(commands.Bot):
             command_prefix=["!", "/"],
             intents=intents,
             help_command=None,
+            allowed_mentions=discord.AllowedMentions.none(),
         )
 
     async def setup_hook(self):
+        await storage.start()
         print("🔄 Configurando sistemas...")
 
         self._setup_system("embeds", lambda: general_embeds.setup(self, ADMIN_ROLE_ID))
@@ -57,6 +60,12 @@ class Bot(commands.Bot):
         print(f"✅ {len(synced)} comandos slash globales sincronizados")
         print("ℹ️ Los comandos globales pueden tardar en aparecer. También se sincronizarán por servidor al conectar.")
         self._guild_synced = False
+
+    async def close(self):
+        try:
+            await storage.close()
+        finally:
+            await super().close()
 
     def _setup_system(self, name, setup_callback):
         try:
