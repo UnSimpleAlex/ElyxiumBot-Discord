@@ -1,4 +1,58 @@
 {
+  "reglas": {
+    "title": "𝚁𝙴𝙶𝙻𝙰𝚂 𝙳𝙴 𝙻𝙰 𝙲𝙾𝙼𝚄𝙽𝙸𝙳𝙰𝙳",
+    "description": "<:1418788292278751264:1552144638138388570> Bienvenido a **ELYXIUM STUDIO**. Estas normas ayudan a mantener una comunidad segura, respetuosa y agradable para todos.\n\nLee las reglas antes de participar y respétalas en los canales de texto, voz, tickets y actividades del servidor.",
+    "color": "#26B99A",
+    "image_url": "https://res.cloudinary.com/y08rn1qr/image/upload/v1791004332/26100f4c-3ca6-4b96-b96f-455ca18a382f.png",
+    "thumbnail_url": null,
+    "footer_text": "Elyxium Studio · Comunidad, respeto y creatividad",
+    "footer_icon": null,
+    "author_name": null,
+    "author_icon": null,
+    "timestamp": false,
+    "fields": [
+      {
+        "name": "01 · RESPETO Y CONVIVENCIA",
+        "value": "<:1418709661737156829:1552151559985692752> Trata a todos con respeto. No se permiten insultos, acoso, amenazas, discriminación ni ataques personales. Evita provocar conflictos y respeta los límites de los demás.",
+        "inline": false
+      },
+      {
+        "name": "02 · CONTENIDO APROPIADO",
+        "value": "<:1418788295361429564:1552144656786002041> No compartas contenido sexual explícito, violencia gráfica, material ilegal ni enlaces maliciosos. Mantén nombres, avatares y mensajes adecuados para la comunidad.",
+        "inline": false
+      },
+      {
+        "name": "03 · SIN SPAM NI PUBLICIDAD NO AUTORIZADA",
+        "value": "<:1418709661737156829:1552151559985692752> Evita mensajes repetidos, cadenas, menciones masivas y saturar el chat o los canales de voz. La publicidad, las invitaciones y la autopromoción requieren autorización del equipo.",
+        "inline": false
+      },
+      {
+        "name": "04 · USA EL CANAL CORRECTO",
+        "value": "<:1418788298029273125:1552144675413172284> Respeta el tema de cada canal. Usa los tickets para solicitar ayuda y proporciona información clara. No abras tickets duplicados ni menciones al staff de forma insistente.",
+        "inline": false
+      },
+      {
+        "name": "05 · PRIVACIDAD Y SEGURIDAD",
+        "value": "<:1418788292278751264:1552144638138388570> No publiques datos personales ni conversaciones privadas sin permiso. No compartas contraseñas, tokens o códigos de verificación. Se prohíben las estafas y la suplantación de identidad.",
+        "inline": false
+      },
+      {
+        "name": "06 · JUEGO LIMPIO Y RESPETO AL TRABAJO",
+        "value": "<:1418709661737156829:1552151559985692752> No uses trampas, exploits ni herramientas para abusar del bot, los juegos o los servicios del servidor. Respeta la autoría de los recursos y no distribuyas material privado o de pago sin autorización.",
+        "inline": false
+      },
+      {
+        "name": "07 · REPORTES Y MODERACIÓN",
+        "value": "<:1418788292278751264:1552144638138388570> Reporta problemas al equipo con pruebas y sin exponer públicamente a otras personas. Sigue las indicaciones del staff; si no estás de acuerdo con una decisión, solicita una revisión por ticket con respeto.",
+        "inline": false
+      },
+      {
+        "name": "08 · CONSECUENCIAS",
+        "value": "<:1418788295361429564:1552144656786002041> Incumplir las normas puede causar una advertencia, restricción temporal, expulsión o veto según la gravedad y la reincidencia. No evadas sanciones con cuentas alternativas.\n\n**AL PARTICIPAR, TE COMPROMETES A RESPETAR ESTAS NORMAS.**",
+        "inline": false
+      }
+    ]
+  },
   "embed_1": {
     "title": "<:1418786420486836314:1431822459333513386> 𝚂𝙸𝚂𝚃𝙴𝙼𝙰 𝙳𝙴 𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾𝙽",
     "description": "Bienvenido al entorno oficial de `Elyxium Studio`.\n\nPara habilitar el acceso completo a los canales correspondientes al rango `**USUARIO**`, es necesario completar el proceso de verificación.\n\n<:1344845976648683570:1431822178407550996> Este procedimiento garantiza una experiencia **SEGURA**, **ORDENADA **y **PERSONALIZADA **dentro de nuestra comunidad.\n\n<:1004055515720060958:1431822185403650170> Por favor, **HAZ CLIC EN EL BOTÓN INFERIOR** para continuar con la verificación.",
