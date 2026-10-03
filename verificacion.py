@@ -261,7 +261,7 @@ class EmbedBuilder:
     def __init__(self):
         self.title = None
         self.description = None
-        self.color = None
+        self.color = '#2ECC71'
         self.image_url = VERIFICATION_BANNER
         self.thumbnail_url = None
         self.footer_text = None

@@ -224,6 +224,22 @@ def update_verification_emojis():
     write_json(marker_path, migrations)
 
 
+def update_verification_color():
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'verification-green-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    path = DATA_DIR / 'verification_embeds.json'
+    documents = read_json(path, {})
+    for document in documents.values():
+        document['color'] = '#2ECC71'
+    if documents:
+        write_json(path, documents)
+    migrations[version] = True
+    write_json(marker_path, migrations)
+
+
 def parse_hex_color(color, fallback=discord.Color.blue()):
     if not color:
         return fallback

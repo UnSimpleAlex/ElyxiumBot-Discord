@@ -9,7 +9,7 @@ import ticket
 import verificacion
 import suggestions
 import creators
-from common import configure_console, ensure_data_dir, StudioEmbed, update_panel_banners, update_verification_emojis
+from common import configure_console, ensure_data_dir, StudioEmbed, update_panel_banners, update_verification_emojis, update_verification_color
 from storage import storage
 
 
@@ -46,6 +46,7 @@ class Bot(commands.Bot):
         await storage.start()
         update_panel_banners()
         update_verification_emojis()
+        update_verification_color()
         print("🔄 Configurando sistemas...")
 
         self._setup_system("embeds", lambda: general_embeds.setup(self, ADMIN_ROLE_ID))

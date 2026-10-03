@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from common import update_verification_emojis
+from common import update_verification_emojis, update_verification_color
 
 import captcha
 import general_embeds
@@ -105,6 +105,17 @@ class BrandingTests(unittest.TestCase):
     def test_new_builders_use_requested_banners(self):
         self.assertEqual(ticket.TicketBuilder().to_embed().image.url, TICKET_BANNER)
         self.assertEqual(verificacion.EmbedBuilder().to_embed().image.url, VERIFICATION_BANNER)
+
+    def test_verification_green_migration_only_changes_color_once(self):
+        document = {'color': '#8A001E', 'title': 'Title', 'description': 'Description', 'image_url': 'banner'}
+        with patch('common.read_json', side_effect=[{}, {'verification_2': document}]), patch('common.write_json') as save:
+            update_verification_color()
+        self.assertEqual(document, {'color': '#2ECC71', 'title': 'Title', 'description': 'Description', 'image_url': 'banner'})
+        self.assertEqual(save.call_count, 2)
+        self.assertEqual(verificacion.EmbedBuilder().to_embed().color.value, 0x2ECC71)
+        with patch('common.read_json', return_value={'verification-green-2026-10-03-v1': True}), patch('common.write_json') as save:
+            update_verification_color()
+        save.assert_not_called()
 
     def test_verification_migration_uses_user_provided_emojis_preserving_settings(self):
         documents = {'verification_2': {'title': 'Title', 'image_url': 'banner',
