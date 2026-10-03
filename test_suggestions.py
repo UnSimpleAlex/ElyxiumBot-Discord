@@ -225,14 +225,27 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
             interaction = self.interaction()
             ctx = SimpleNamespace(guild=SimpleNamespace(id=10), author=interaction.user,
                                   channel=SimpleNamespace(id=100), send=AsyncMock())
+            bot.suggestions.move_panel = AsyncMock()
             await bot.get_command('sugerencias').callback(ctx)
-            self.assertIsInstance(ctx.send.await_args.kwargs['view'], module.CommandFormView)
+            bot.suggestions.move_panel.assert_awaited_once_with(10)
+            ctx.send.assert_not_awaited()
             ctx.send.reset_mock()
             ctx.channel.id = 999
             await bot.get_command('sugerencias').callback(ctx)
             self.assertNotIn('view', ctx.send.await_args.kwargs)
         finally:
             await bot.close()
+
+    async def test_panel_command_rate_limit_and_complete_embed_outside_channel(self):
+        interaction = self.interaction()
+        channel = SimpleNamespace(id=999, send=AsyncMock())
+        with patch.object(self.service, 'can_suggest', return_value=True):
+            await self.service.command_panel(interaction.user, 10, channel)
+            self.assertEqual(channel.send.await_args.kwargs['embed'].image.url, module.PANEL_BANNER)
+            self.assertIsInstance(channel.send.await_args.kwargs['view'], module.CommandFormView)
+            result = await self.service.command_panel(interaction.user, 10, channel)
+            self.assertIn('diez segundos', result)
+            channel.send.assert_awaited_once()
 
     async def test_move_panel_sends_replacement_before_deleting_old(self):
         config = self.service.config['10']

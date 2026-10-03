@@ -34,6 +34,16 @@ class BrandingTests(unittest.TestCase):
     def test_suggestion_panel_uses_requested_banner(self):
         self.assertEqual(suggestions.render_panel().image.url, suggestions.PANEL_BANNER)
 
+    def test_titles_receive_emoji_without_duplicate_prefix(self):
+        embed = StudioEmbed(title='𝙲𝙾́𝙳𝙸𝙶𝙾 𝙳𝙴 𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾́𝙽')
+        self.assertTrue(embed.title.startswith('🔑 '))
+        embed.title = '📜 Normas'
+        self.assertEqual(embed.title, '📜 Normas')
+        self.assertTrue(suggestions.render_panel().title.startswith('💡 '))
+
+    def test_footer_uses_transparent_isotipo(self):
+        self.assertEqual(BRAND_LOGO, 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png')
+
 
 if __name__ == '__main__':
     unittest.main()

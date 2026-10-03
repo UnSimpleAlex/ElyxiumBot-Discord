@@ -82,6 +82,7 @@ class SuggestionService:
         self.config = read_json(CONFIG_FILE, {})
         self.records = read_json(STATE_FILE, {})
         self.requests = {}
+        self.panel_command_times = {}
         self.panel_views = {}
         self.lock = asyncio.Lock()
 
@@ -119,6 +120,24 @@ class SuggestionService:
             request = FormRequest(interaction.guild_id, interaction.user.id, config['public_channel_id'])
             self.requests[key] = request
         await interaction.response.send_modal(SuggestionModal(self, request))
+
+    async def command_panel(self, user, guild_id, channel):
+        if not self.can_suggest(user, guild_id, channel.id):
+            return 'Usa el comando en el canal configurado. Solo el rol de acceso puede usarlo en otros canales.'
+        async with self.lock:
+            now = time.monotonic()
+            self.panel_command_times = {key: deadline for key, deadline in self.panel_command_times.items()
+                                        if deadline > now}
+            if guild_id in self.panel_command_times:
+                return 'Espera diez segundos antes de volver a publicar el panel.'
+            self.panel_command_times[guild_id] = now + 10
+            config = self.config[str(guild_id)]
+            if channel.id == config['public_channel_id']:
+                await self.move_panel(guild_id)
+            else:
+                await channel.send(embed=render_panel(), view=CommandFormView(self, user.id),
+                                   delete_after=180, allowed_mentions=discord.AllowedMentions.none())
+        return 'Panel de sugerencias publicado.'
 
     def restore(self):
         for guild_id, config in self.config.items():
@@ -344,7 +363,7 @@ class CommandFormView(ResponsiveView):
         self.service, self.author_id = service, author_id
         self.open.emoji = discord.PartialEmoji.from_str(EMOJI['form'])
 
-    @discord.ui.button(label='Abrir formulario', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Sugerir', style=discord.ButtonStyle.primary)
     async def open(self, interaction, button):
         if interaction.user.id != self.author_id:
             await interaction.response.send_message('Este botón pertenece a otra persona.', ephemeral=True)
@@ -444,20 +463,25 @@ def setup(bot):
     bot.suggestions = service
     service.restore()
     bot.add_listener(service.ensure_panels, 'on_ready')
-    @bot.tree.command(name='sugerencias', description='Abre el formulario para enviar una sugerencia')
+    @bot.tree.command(name='sugerencias', description='Publica el panel completo para enviar sugerencias')
     @app_commands.guild_only()
     async def suggest_slash(interaction: discord.Interaction):
-        await service.open_form(interaction)
+        await interaction.response.defer(ephemeral=True)
+        result = await service.command_panel(interaction.user, interaction.guild_id, interaction.channel)
+        await interaction.followup.send(result, ephemeral=True)
 
-    @bot.command(name='sugerencias')
+    bot.tree.add_command(app_commands.Command(name='sugerencia',
+                         description='Publica el panel completo para enviar sugerencias', callback=suggest_slash.callback))
+
+    @bot.command(name='sugerencias', aliases=['sugerencia'])
     @commands.cooldown(1, 10, commands.BucketType.member)
     async def suggest_prefix(ctx):
         if ctx.guild is None or not service.can_suggest(ctx.author, ctx.guild.id, ctx.channel.id):
             await ctx.send('Usa !sugerencias en el canal configurado. Solo el rol de acceso puede usarlo en otros canales.', delete_after=30)
             return
-        await ctx.send(embed=StudioEmbed(title='𝙽𝚄𝙴𝚅𝙰 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰',
-                                         description=f"{EMOJI['form']} Presiona **ABRIR FORMULARIO** para escribir tu propuesta. Este botón vence en tres minutos.", color=0x26B99A),
-                       view=CommandFormView(service, ctx.author.id), delete_after=180)
+        result = await service.command_panel(ctx.author, ctx.guild.id, ctx.channel)
+        if result != 'Panel de sugerencias publicado.':
+            await ctx.send(result, delete_after=10)
 
     @suggest_prefix.error
     async def prefix_error(ctx, error):

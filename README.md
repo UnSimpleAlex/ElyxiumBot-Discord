@@ -119,8 +119,10 @@ sugerencia. Escribir mensajes normales ya no abre formularios. Estos vencen a lo
 minutos y solo su autor puede enviarlos. El panel y las votaciones sobreviven al reinicio.
 Las configuraciones existentes reciben su panel automaticamente al arrancar.
 
-Todos los miembros pueden usar `/sugerencias` en el canal configurado: abre el formulario
-directamente. `!sugerencias` ofrece un boton temporal, exclusivo del autor, que lo abre.
+Todos los miembros pueden usar `/sugerencias`, `/sugerencia`, `!sugerencias` o
+`!sugerencia`: publican el panel completo con banner y boton Sugerir. En el canal
+configurado reemplazan el panel anterior para dejarlo al final, sin duplicados.
+En otros canales el panel es temporal y el boton es exclusivo del autor.
 El rol `rol_comando` puede usar ambas opciones desde cualquier canal del servidor; las
 ideas siempre se publican en el canal de sugerencias, no en el canal donde se invocaron.
 Este rol no concede permisos para revisar. Para cambiar el canal y el acceso sin

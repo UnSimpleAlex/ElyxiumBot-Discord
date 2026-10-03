@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import sys
+import unicodedata
 from pathlib import Path
 
 import discord
@@ -18,6 +19,23 @@ class StudioEmbed(discord.Embed):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_footer()
+
+    def __setattr__(self, name, value):
+        if name == 'title' and value:
+            value = str(value)
+            if value.strip() and unicodedata.category(value.lstrip()[0]) != 'So':
+                normalized = ''.join(character for character in unicodedata.normalize('NFKD', value)
+                                     if not unicodedata.combining(character)).upper()
+                emoji = '📌'
+                for keyword, candidate in (('CODIGO', '🔑'), ('VERIFIC', '🛡️'),
+                                           ('SUGEREN', '💡'), ('REGLAS', '📜'),
+                                           ('NORMAS', '📜'), ('TICKET', '🎫'),
+                                           ('ERROR', '⚠️')):
+                    if keyword in normalized:
+                        emoji = candidate
+                        break
+                value = f'{emoji} {value}'[:256]
+        super().__setattr__(name, value)
 
     def set_footer(self, *, text=None, icon_url=None):
         return super().set_footer(text=BRAND_FOOTER, icon_url=BRAND_LOGO)
