@@ -3,7 +3,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView
+from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView, StudioEmbed
 
 
 EMBEDS_STORAGE_FILE = "data/embeds_storage.json"
@@ -57,7 +57,7 @@ class EmbedBuilder:
         }
 
     def to_embed(self):
-        embed = discord.Embed()
+        embed = StudioEmbed()
 
         if self.title:
             embed.title = self.title
@@ -406,7 +406,7 @@ def setup(bot, admin_role_id):
             await interaction.response.send_message("📝 No hay embeds guardados.", ephemeral=True)
             return
 
-        embed = discord.Embed(title="📋 Embeds Guardados", color=discord.Color.blue())
+        embed = StudioEmbed(title="📋 Embeds Guardados", color=discord.Color.blue())
         for embed_id, builder in embeds_storage.items():
             info = builder.summary()
             summary = "\n".join([f"**{key}:** {value}" for key, value in info.items()]) or "*Sin contenido configurado*"

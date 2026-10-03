@@ -109,7 +109,7 @@ Esos archivos son secretos, dependencias instaladas, cache o estado temporal.
 Configura dos canales diferentes (el del staff debe ser privado) y un rol de revision:
 
 ```txt
-/sugerencias configurar canal_sugerencias:#sugerencias canal_staff:#revision rol_revision:@Revisor
+/sugerencias_admin configurar canal_sugerencias:#sugerencias canal_staff:#revision rol_revision:@Revisor rol_comando:@Colaborador
 ```
 
 El canal publico tiene un panel permanente con el boton Sugerir, que abre el formulario.
@@ -118,6 +118,22 @@ el panel y elimina su copia anterior para dejarlo al final del canal tras cada n
 sugerencia. Escribir mensajes normales ya no abre formularios. Estos vencen a los tres
 minutos y solo su autor puede enviarlos. El panel y las votaciones sobreviven al reinicio.
 Las configuraciones existentes reciben su panel automaticamente al arrancar.
+
+Todos los miembros pueden usar `/sugerencias` en el canal configurado: abre el formulario
+directamente. `!sugerencias` ofrece un boton temporal, exclusivo del autor, que lo abre.
+El rol `rol_comando` puede usar ambas opciones desde cualquier canal del servidor; las
+ideas siempre se publican en el canal de sugerencias, no en el canal donde se invocaron.
+Este rol no concede permisos para revisar. Para cambiar el canal y el acceso sin
+reconfigurar el staff:
+
+```txt
+/sugerencias_admin acceso canal:#sugerencias rol_comando:@Colaborador
+```
+
+Omitir rol_comando en acceso desactiva el uso desde otros canales. Los antiguos
+subcomandos `/sugerencias ...` ahora estan en `/sugerencias_admin ...`.
+El panel usa el banner de sugerencias. Todos los embeds nuevos o actualizados llevan
+el logo del bot y el footer `© Elyxium Studio Copyright 2026` desde `common.StudioEmbed`.
 
 Cada persona tiene un voto: repetir la opcion lo retira y cambiarla reemplaza el voto.
 Hay cinco segundos entre cambios de voto y tres minutos entre sugerencias.
@@ -130,9 +146,9 @@ MySQL y JSON; los botones de publicaciones se restauran tras reiniciar.
 Si falla el envio o se borran mensajes, el rol de revision puede reconstruirlos:
 
 ```txt
-/sugerencias sincronizar sugerencia_id:ID
-/sugerencias panel
-/sugerencias desactivar
+/sugerencias_admin sincronizar sugerencia_id:ID
+/sugerencias_admin panel
+/sugerencias_admin desactivar
 ```
 
 Limites: 500 formularios simultaneos, 10000 registros y 20000 votantes por

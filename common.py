@@ -9,6 +9,18 @@ from discord import app_commands
 
 
 DATA_DIR = Path("data")
+BRAND_FOOTER = '© Elyxium Studio Copyright 2026'
+BRAND_LOGO = 'https://cdn.discordapp.com/avatars/1418452578102153226/0511c1a0b2562146e0f4cc69aa9cea02.png'
+
+
+class StudioEmbed(discord.Embed):
+    """Use the same studio signature on every generated embed."""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_footer()
+
+    def set_footer(self, *, text=None, icon_url=None):
+        return super().set_footer(text=BRAND_FOOTER, icon_url=BRAND_LOGO)
 
 
 class ResponsiveView(discord.ui.View):

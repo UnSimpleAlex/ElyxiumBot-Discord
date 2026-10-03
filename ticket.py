@@ -7,7 +7,7 @@ import io
 from typing import Optional
 from datetime import datetime
 
-from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView
+from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView, StudioEmbed
 
 
 configure_console()
@@ -185,7 +185,7 @@ class TicketBuilder:
         self.timestamp = True
     
     def to_embed(self):
-        embed = discord.Embed()
+        embed = StudioEmbed()
         
         if self.title:
             embed.title = self.title
@@ -347,7 +347,7 @@ class TicketCategorySelect(discord.ui.Select):
         }
         
         info = category_info.get(category, category_info["otro"])
-        embed = discord.Embed(title=info["title"], description=info["description"], color=info["color"], timestamp=discord.utils.utcnow())
+        embed = StudioEmbed(title=info["title"], description=info["description"], color=info["color"], timestamp=discord.utils.utcnow())
         embed.set_footer(text="Elyxium Studio - Sistema de Tickets", icon_url=user.guild.icon.url if user.guild.icon else None)
         return embed
 
@@ -420,7 +420,7 @@ class ConfirmCloseView(ResponsiveView):
             ticket_info = active_tickets[self.channel_id]
             user = interaction.guild.get_member(ticket_info['user_id'])
             
-            close_embed = discord.Embed(title="🔒 Ticket Cerrado", description=f"Ticket cerrado por {interaction.user.mention}", color=0xFF0000, timestamp=discord.utils.utcnow())
+            close_embed = StudioEmbed(title="🔒 Ticket Cerrado", description=f"Ticket cerrado por {interaction.user.mention}", color=0xFF0000, timestamp=discord.utils.utcnow())
             close_embed.add_field(name="Usuario", value=user.mention if user else "Usuario no encontrado", inline=True)
             close_embed.add_field(name="Categoría", value=ticket_info['category'].title(), inline=True)
             close_embed.add_field(name="Duración", value=f"Creado: <t:{int(datetime.fromisoformat(ticket_info['created_at']).timestamp())}:R>", inline=True)
@@ -602,7 +602,7 @@ def setup_ticket_commands(bot):
     @ticket_group.command(name="options", description="Muestra los emojis actuales de las opciones de tickets")
     @is_admin()
     async def ticket_options_command(interaction: discord.Interaction):
-        embed = discord.Embed(
+        embed = StudioEmbed(
             title="🎫 Opciones del selector de tickets",
             color=discord.Color.blue()
         )
@@ -861,7 +861,7 @@ def setup_ticket_commands(bot):
             category = ticket_info['category']
             category_counts[category] = category_counts.get(category, 0) + 1
         
-        embed = discord.Embed(title="📊 Estadísticas de Tickets", color=0x0099FF, timestamp=discord.utils.utcnow())
+        embed = StudioEmbed(title="📊 Estadísticas de Tickets", color=0x0099FF, timestamp=discord.utils.utcnow())
         embed.add_field(name="📋 Configuraciones", value=f"{total_configs} configuraciones guardadas", inline=True)
         embed.add_field(name="🎫 Tickets Activos", value=f"{active_count} tickets abiertos", inline=True)
         

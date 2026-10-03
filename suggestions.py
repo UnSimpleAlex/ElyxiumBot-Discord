@@ -4,15 +4,18 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from typing import Optional
 
 import discord
 from discord import app_commands
+from discord.ext import commands
 
-from common import ResponsiveView, read_json, write_json
+from common import ResponsiveView, read_json, write_json, StudioEmbed
 
 
 CONFIG_FILE = 'data/suggestions_config.json'
 STATE_FILE = 'data/suggestions.json'
+PANEL_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791059727/7055d8d6-3712-4dc5-a0ff-7c515755c287.png'
 EMOJI = {
     'form': '<:1366121378494812271:1555793470545862756>',
     'suggestion': '<:1418788298029273125:1552144675413172284>',
@@ -37,7 +40,7 @@ class FormRequest:
 
 
 def render_panel():
-    embed = discord.Embed(
+    embed = StudioEmbed(
         title='𝙱𝚄𝚉𝙾́𝙽 𝙳𝙴 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰𝚂',
         description=f"{EMOJI['form']} **TU IDEA PUEDE MEJORAR ELYXIUM STUDIO**\n\n"
                     'Comparte tu propuesta y explica qué aportaría a la comunidad.\n\n'
@@ -46,6 +49,7 @@ def render_panel():
         color=0x26B99A,
     )
     embed.set_footer(text='Elyxium Studio · Ideas, comunidad y creatividad')
+    embed.set_image(url=PANEL_BANNER)
     return embed
 
 
@@ -56,13 +60,14 @@ def count_votes(record):
 
 def render(record, staff=False):
     up, down = count_votes(record)
-    embed = discord.Embed(
+    embed = StudioEmbed(
         title='𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰 · ' + STATUS[record['status']],
         description=f"{EMOJI['suggestion']} **{discord.utils.escape_markdown(record['title'])}**\n\n{record['description']}",
         color=COLORS[record['status']],
     )
     embed.add_field(name='AUTOR', value=f"<@{record['author_id']}>", inline=True)
     embed.add_field(name='VOTOS', value=f"{EMOJI['up']} **{up}** a favor  ·  {EMOJI['down']} **{down}** en contra", inline=True)
+    embed.add_field(name='IDENTIFICADOR', value=f"`{record['id']}`", inline=True)
     if record.get('reviewer_id'):
         embed.add_field(name='REVISIÓN', value=f"{EMOJI['staff']} <@{record['reviewer_id']}>\n{record.get('reason') or 'Sin observaciones.'}", inline=False)
     if staff and record.get('public_message_id'):
@@ -88,6 +93,32 @@ class SuggestionService:
         return isinstance(user, discord.Member) and user.guild.id == guild_id and any(
             role.id == config.get('review_role_id') for role in user.roles
         )
+
+    def can_suggest(self, user, guild_id, channel_id):
+        config = self.config.get(str(guild_id), {})
+        if not config.get('enabled') or not isinstance(user, discord.Member) or user.guild.id != guild_id:
+            return False
+        return channel_id == config['public_channel_id'] or any(
+            role.id == config.get('command_role_id') for role in user.roles
+        )
+
+    async def open_form(self, interaction):
+        if not self.can_suggest(interaction.user, interaction.guild_id, interaction.channel_id):
+            await interaction.response.send_message('Usa /sugerencias en el canal configurado. Solo el rol de acceso puede usarlo en otros canales.', ephemeral=True)
+            return
+        now = time.monotonic()
+        self.requests = {key: value for key, value in self.requests.items()
+                         if value.deadline > now and not value.submitted}
+        key = (interaction.guild_id, interaction.user.id)
+        request = self.requests.get(key)
+        if request is None:
+            if len(self.requests) >= 500:
+                await interaction.response.send_message('Hay muchos formularios abiertos. Intenta de nuevo en unos minutos.', ephemeral=True)
+                return
+            config = self.config[str(interaction.guild_id)]
+            request = FormRequest(interaction.guild_id, interaction.user.id, config['public_channel_id'])
+            self.requests[key] = request
+        await interaction.response.send_modal(SuggestionModal(self, request))
 
     def restore(self):
         for guild_id, config in self.config.items():
@@ -151,7 +182,10 @@ class SuggestionService:
                     if config.get('panel_message_id'):
                         channel = await self.channel(config['public_channel_id'])
                         try:
-                            await channel.fetch_message(config['panel_message_id'])
+                            message = await channel.fetch_message(config['panel_message_id'])
+                            view = self.panel_views.get(int(guild_id)) or PanelView(self, int(guild_id))
+                            self.panel_views[int(guild_id)] = view
+                            await message.edit(embed=render_panel(), view=view)
                             continue
                         except discord.NotFound:
                             pass
@@ -177,7 +211,7 @@ class SuggestionService:
                 try:
                     await self.move_panel(record['guild_id'])
                 except discord.HTTPException:
-                    logging.exception('Suggestion published, but panel could not be moved; use /sugerencias panel')
+                    logging.exception('Suggestion published, but panel could not be moved; use /sugerencias_admin panel')
 
     async def publish(self, interaction, request, title, description):
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -187,7 +221,8 @@ class SuggestionService:
             if (self.requests.get(key) is not request or request.submitted
                     or time.monotonic() >= request.deadline or interaction.user.id != key[1]
                     or interaction.guild_id != key[0] or not config.get('enabled')
-                    or config.get('public_channel_id') != request.channel_id):
+                    or config.get('public_channel_id') != request.channel_id
+                    or not self.can_suggest(interaction.user, interaction.guild_id, interaction.channel_id)):
                 await interaction.followup.send('El formulario venció o ya fue enviado. Presiona Sugerir para abrir otro.', ephemeral=True)
                 return
             if not title.strip() or not description.strip():
@@ -214,7 +249,7 @@ class SuggestionService:
                 result = f"Sugerencia publicada. ID: `{record['id']}`. El staff recibió una copia para revisarla."
             except discord.HTTPException:
                 logging.exception('Suggestion delivery incomplete: %s', record['id'])
-                result = f"Sugerencia guardada con ID `{record['id']}`, pero no pude enviar todos los mensajes. El staff puede usar /sugerencias sincronizar."
+                result = f"Sugerencia guardada con ID `{record['id']}`, pero no pude enviar todos los mensajes. El staff puede usar /sugerencias_admin sincronizar."
         await interaction.followup.send(result, ephemeral=True)
 
     async def vote(self, interaction, suggestion_id, choice):
@@ -280,7 +315,7 @@ class SuggestionService:
                     await self.sync(record)
                 except discord.HTTPException:
                     logging.exception('Review saved; message update failed')
-                    await interaction.followup.send('Decisión guardada. No pude actualizar los mensajes; usa /sugerencias sincronizar.', ephemeral=True)
+                    await interaction.followup.send('Decisión guardada. No pude actualizar los mensajes; usa /sugerencias_admin sincronizar.', ephemeral=True)
                     return
         await interaction.followup.send('Sugerencia ' + STATUS[action].lower() + '.', ephemeral=True)
 
@@ -300,18 +335,21 @@ class PanelView(ResponsiveView):
                 or interaction.message.id != config.get('panel_message_id')):
             await interaction.response.send_message('Este panel ya no está activo. Usa el panel más reciente del canal.', ephemeral=True)
             return
-        now = time.monotonic()
-        self.service.requests = {key: value for key, value in self.service.requests.items()
-                                 if value.deadline > now and not value.submitted}
-        key = (self.guild_id, interaction.user.id)
-        request = self.service.requests.get(key)
-        if request is None:
-            if len(self.service.requests) >= 500:
-                await interaction.response.send_message('Hay muchos formularios abiertos. Intenta de nuevo en unos minutos.', ephemeral=True)
-                return
-            request = FormRequest(self.guild_id, interaction.user.id, interaction.channel_id)
-            self.service.requests[key] = request
-        await interaction.response.send_modal(SuggestionModal(self.service, request))
+        await self.service.open_form(interaction)
+
+
+class CommandFormView(ResponsiveView):
+    def __init__(self, service, author_id):
+        super().__init__(timeout=180)
+        self.service, self.author_id = service, author_id
+        self.open.emoji = discord.PartialEmoji.from_str(EMOJI['form'])
+
+    @discord.ui.button(label='Abrir formulario', style=discord.ButtonStyle.primary)
+    async def open(self, interaction, button):
+        if interaction.user.id != self.author_id:
+            await interaction.response.send_message('Este botón pertenece a otra persona.', ephemeral=True)
+            return
+        await self.service.open_form(interaction)
 
 
 class SuggestionModal(discord.ui.Modal):
@@ -406,16 +444,43 @@ def setup(bot):
     bot.suggestions = service
     service.restore()
     bot.add_listener(service.ensure_panels, 'on_ready')
-    group = app_commands.Group(name='sugerencias', description='Configuración y revisión de sugerencias')
+    @bot.tree.command(name='sugerencias', description='Abre el formulario para enviar una sugerencia')
+    @app_commands.guild_only()
+    async def suggest_slash(interaction: discord.Interaction):
+        await service.open_form(interaction)
+
+    @bot.command(name='sugerencias')
+    @commands.cooldown(1, 10, commands.BucketType.member)
+    async def suggest_prefix(ctx):
+        if ctx.guild is None or not service.can_suggest(ctx.author, ctx.guild.id, ctx.channel.id):
+            await ctx.send('Usa !sugerencias en el canal configurado. Solo el rol de acceso puede usarlo en otros canales.', delete_after=30)
+            return
+        await ctx.send(embed=StudioEmbed(title='𝙽𝚄𝙴𝚅𝙰 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰',
+                                         description=f"{EMOJI['form']} Presiona **ABRIR FORMULARIO** para escribir tu propuesta. Este botón vence en tres minutos.", color=0x26B99A),
+                       view=CommandFormView(service, ctx.author.id), delete_after=180)
+
+    @suggest_prefix.error
+    async def prefix_error(ctx, error):
+        if isinstance(error, commands.CommandOnCooldown):
+            await ctx.send('Espera unos segundos antes de pedir otro formulario.', delete_after=10)
+        else:
+            logging.error('Suggestion prefix command failed', exc_info=(type(error), error, error.__traceback__))
+            await ctx.send('No pude abrir el formulario. Comprueba los permisos del bot.', delete_after=30)
+
+    group = app_commands.Group(name='sugerencias_admin', description='Configuración y revisión de sugerencias')
 
     @group.command(name='configurar', description='Configura el canal público, el canal del staff y el rol de revisión')
     @app_commands.guild_only()
     @app_commands.checks.has_permissions(administrator=True)
     async def configure(interaction: discord.Interaction, canal_sugerencias: discord.TextChannel,
-                        canal_staff: discord.TextChannel, rol_revision: discord.Role):
+                        canal_staff: discord.TextChannel, rol_revision: discord.Role,
+                        rol_comando: Optional[discord.Role] = None):
         await interaction.response.defer(ephemeral=True, thinking=True)
         if canal_sugerencias.guild.id != interaction.guild_id or canal_staff.guild.id != interaction.guild_id or rol_revision.guild.id != interaction.guild_id or rol_revision.is_default() or canal_staff.id == canal_sugerencias.id:
             await interaction.followup.send('Selecciona dos canales diferentes de este servidor y un rol distinto de @everyone.', ephemeral=True)
+            return
+        if rol_comando and (rol_comando.guild.id != interaction.guild_id or rol_comando.is_default()):
+            await interaction.followup.send('Selecciona un rol de acceso de este servidor distinto de @everyone.', ephemeral=True)
             return
         for channel in (canal_sugerencias, canal_staff):
             permissions = channel.permissions_for(interaction.guild.me)
@@ -433,6 +498,8 @@ def setup(bot):
             old = service.config.get(str(interaction.guild_id), {})
             service.config[str(interaction.guild_id)] = {**old, 'enabled': True, 'public_channel_id': canal_sugerencias.id,
                                                         'staff_channel_id': canal_staff.id, 'review_role_id': rol_revision.id}
+            if rol_comando:
+                service.config[str(interaction.guild_id)]['command_role_id'] = rol_comando.id
             write_json(CONFIG_FILE, service.config)
             await service.move_panel(interaction.guild_id)
         await interaction.followup.send(f'Sistema activado en {canal_sugerencias.mention}. Revisión: {canal_staff.mention}. Rol autorizado: {rol_revision.mention}.', ephemeral=True)
@@ -469,10 +536,34 @@ def setup(bot):
         await interaction.response.defer(ephemeral=True, thinking=True)
         config = service.config.get(str(interaction.guild_id), {})
         if not config.get('enabled'):
-            await interaction.followup.send('Primero configura el sistema con /sugerencias configurar.', ephemeral=True)
+            await interaction.followup.send('Primero configura el sistema con /sugerencias_admin configurar.', ephemeral=True)
             return
         async with service.lock:
             await service.move_panel(interaction.guild_id)
         await interaction.followup.send('Panel de sugerencias publicado al final del canal.', ephemeral=True)
+
+    @group.command(name='acceso', description='Elige el canal para todos y el rol que puede sugerir desde cualquier canal')
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    async def access(interaction: discord.Interaction, canal: discord.TextChannel,
+                     rol_comando: Optional[discord.Role] = None):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        config = service.config.get(str(interaction.guild_id), {})
+        if not config.get('enabled'):
+            await interaction.followup.send('Primero usa /sugerencias_admin configurar.', ephemeral=True)
+            return
+        if canal.guild.id != interaction.guild_id or canal.id == config['staff_channel_id'] or (rol_comando and (rol_comando.guild.id != interaction.guild_id or rol_comando.is_default())):
+            await interaction.followup.send('Elige un canal público distinto del canal del staff y un rol de este servidor distinto de @everyone.', ephemeral=True)
+            return
+        permissions = canal.permissions_for(interaction.guild.me)
+        if not all((permissions.view_channel, permissions.send_messages, permissions.embed_links, permissions.read_message_history)):
+            await interaction.followup.send('El bot necesita Ver canal, Enviar mensajes, Insertar enlaces y Leer historial.', ephemeral=True)
+            return
+        async with service.lock:
+            config['public_channel_id'] = canal.id
+            config['command_role_id'] = rol_comando.id if rol_comando else None
+            write_json(CONFIG_FILE, service.config)
+            await service.move_panel(interaction.guild_id)
+        await interaction.followup.send('Acceso actualizado. Todos pueden sugerir en el canal seleccionado; el rol elegido también puede hacerlo en otros canales.', ephemeral=True)
 
     bot.tree.add_command(group)

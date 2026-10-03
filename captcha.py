@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 from datetime import datetime, timedelta
 import aiohttp
 
-from common import configure_console, read_json, write_json
+from common import configure_console, read_json, write_json, StudioEmbed
 
 
 configure_console()
@@ -202,7 +202,7 @@ def _format_captcha_text(text, user, guild, result):
 
 def build_captcha_embed(user, guild, result, use_image_description=False):
     """Construye el embed configurable que recibe el usuario con su código."""
-    embed = discord.Embed()
+    embed = StudioEmbed()
     embed.title = _format_captcha_text(captcha_embed_config.get("title"), user, guild, result)
     description_key = "image_description" if use_image_description else "description"
     description_template = captcha_embed_config.get(description_key) or captcha_embed_config.get("description")
@@ -477,7 +477,7 @@ def _parse_color(color, fallback):
 def build_captcha_prompt_embed(user, guild, dm_sent=True):
     """Construye el embed temporal que muestra el botón para ingresar el código."""
     prefix = "dm" if dm_sent else "fallback"
-    embed = discord.Embed()
+    embed = StudioEmbed()
     embed.title = _format_captcha_text(captcha_prompt_config.get(f"{prefix}_title"), user, guild, {})
     embed.description = _format_captcha_text(captcha_prompt_config.get(f"{prefix}_description"), user, guild, {})
     embed.color = _parse_color(
@@ -634,7 +634,7 @@ class CaptchaModal(ui.Modal):
             try:
                 await interaction.user.add_roles(self.role)
                 
-                embed = discord.Embed(
+                embed = StudioEmbed(
                     title="✅ Verificación Exitosa",
                     description=f"¡Felicidades! Has sido verificado correctamente.\n\nSe te ha asignado el rol: **{self.role.name}**",
                     color=discord.Color.green()
@@ -655,7 +655,7 @@ class CaptchaModal(ui.Modal):
                     ephemeral=True
                 )
         else:
-            embed = discord.Embed(
+            embed = StudioEmbed(
                 title="❌ Verificación Fallida",
                 description=result['message'],
                 color=discord.Color.red()
@@ -925,7 +925,7 @@ def setup(bot):
         result = create_captcha_code(str(usuario.id))
         
         if result['success']:
-            embed = discord.Embed(
+            embed = StudioEmbed(
                 title="🔑 Código Generado",
                 description=f"Código para {usuario.mention}",
                 color=discord.Color.blue()
@@ -947,7 +947,7 @@ def setup(bot):
         clean_expired_codes()
         
         if user_id not in captcha_codes:
-            embed = discord.Embed(
+            embed = StudioEmbed(
                 title="ℹ️ Sin Código Activo",
                 description="No tienes un código de verificación activo.",
                 color=discord.Color.orange()
@@ -966,7 +966,7 @@ def setup(bot):
         
         status = "✅ Usado" if data.get('used', False) else "⏳ Pendiente"
         
-        embed = discord.Embed(
+        embed = StudioEmbed(
             title="🔑 Tu Código de Captcha",
             color=discord.Color.blue() if not data.get('used', False) else discord.Color.green()
         )

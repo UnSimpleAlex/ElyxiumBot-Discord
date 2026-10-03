@@ -6,7 +6,7 @@ from typing import Optional
 import asyncio
 import logging
 
-from common import configure_console, read_json, write_json, ResponsiveView
+from common import configure_console, read_json, write_json, ResponsiveView, StudioEmbed
 
 
 configure_console()
@@ -272,7 +272,7 @@ class EmbedBuilder:
         self.timestamp = False
     
     def to_embed(self):
-        embed = discord.Embed()
+        embed = StudioEmbed()
         
         if self.title:
             embed.title = self.title
@@ -729,7 +729,7 @@ def setup_verification_commands(bot):
             await interaction.response.send_message("📝 No hay configuraciones de verificación.", ephemeral=True)
             return
         
-        embed = discord.Embed(
+        embed = StudioEmbed(
             title="📋 Configuraciones de Verificación",
             color=discord.Color.green()
         )

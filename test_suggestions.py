@@ -174,6 +174,66 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
         self.service.sync.assert_not_awaited()
         self.assertEqual(len(self.service.records), 1)
 
+    async def test_commands_allow_everyone_only_in_configured_channel(self):
+        interaction = self.interaction()
+        await self.service.open_form(interaction)
+        interaction.response.send_modal.assert_awaited_once()
+        interaction.response.send_modal.reset_mock()
+        interaction.channel_id = 999
+        await self.service.open_form(interaction)
+        interaction.response.send_modal.assert_not_awaited()
+        interaction.response.send_message.assert_awaited_once()
+
+    async def test_command_role_can_suggest_elsewhere_without_review_privileges(self):
+        interaction = self.interaction()
+        interaction.channel_id = 999
+        interaction.user.roles = [SimpleNamespace(id=40)]
+        self.service.config['10']['command_role_id'] = 40
+        await self.service.open_form(interaction)
+        interaction.response.send_modal.assert_awaited_once()
+        request = self.service.requests[(10, 2)]
+        self.assertEqual(request.channel_id, 100)
+        self.assertFalse(self.service.reviewer(interaction.user, 10))
+        await self.service.publish(interaction, request, 'Idea', 'Contenido')
+        record = next(r for r in self.service.records.values() if r['author_id'] == 2)
+        self.assertEqual(record['public_channel_id'], 100)
+
+    async def test_command_role_revoked_before_submission_blocks_publish(self):
+        interaction = self.interaction()
+        interaction.channel_id = 999
+        self.service.config['10']['command_role_id'] = 40
+        interaction.user.roles = [SimpleNamespace(id=40)]
+        await self.service.open_form(interaction)
+        request = self.service.requests[(10, 2)]
+        interaction.user.roles = []
+        await self.service.publish(interaction, request, 'Idea', 'Contenido')
+        self.service.sync.assert_not_awaited()
+
+    async def test_prefix_command_launcher_checks_owner(self):
+        view = module.CommandFormView(self.service, author_id=1)
+        interaction = self.interaction(user_id=2)
+        await view.open.callback(interaction)
+        interaction.response.send_modal.assert_not_awaited()
+        interaction.response.send_message.assert_awaited_once()
+
+    async def test_prefix_command_respects_channel_permissions(self):
+        bot = commands.Bot(command_prefix='!', intents=discord.Intents.default())
+        try:
+            with patch('suggestions.read_json', return_value={}):
+                module.setup(bot)
+            bot.suggestions.config = self.service.config
+            interaction = self.interaction()
+            ctx = SimpleNamespace(guild=SimpleNamespace(id=10), author=interaction.user,
+                                  channel=SimpleNamespace(id=100), send=AsyncMock())
+            await bot.get_command('sugerencias').callback(ctx)
+            self.assertIsInstance(ctx.send.await_args.kwargs['view'], module.CommandFormView)
+            ctx.send.reset_mock()
+            ctx.channel.id = 999
+            await bot.get_command('sugerencias').callback(ctx)
+            self.assertNotIn('view', ctx.send.await_args.kwargs)
+        finally:
+            await bot.close()
+
     async def test_move_panel_sends_replacement_before_deleting_old(self):
         config = self.service.config['10']
         config['panel_message_id'] = 111
@@ -222,7 +282,7 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
     async def test_ready_does_not_duplicate_existing_panel(self):
         self.service.config['10']['panel_message_id'] = 111
         channel = MagicMock()
-        channel.fetch_message = AsyncMock(return_value=SimpleNamespace(id=111))
+        channel.fetch_message = AsyncMock(return_value=SimpleNamespace(id=111, edit=AsyncMock()))
         self.service.channel = AsyncMock(return_value=channel)
         self.service.move_panel = AsyncMock()
         with patch('suggestions.write_json'):
@@ -262,8 +322,10 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
         try:
             with patch('suggestions.read_json', return_value={}):
                 module.setup(bot)
-            group = bot.tree.get_command('sugerencias')
-            self.assertEqual({command.name for command in group.commands}, {'configurar', 'sincronizar', 'desactivar', 'panel'})
+            group = bot.tree.get_command('sugerencias_admin')
+            self.assertEqual({command.name for command in group.commands}, {'configurar', 'sincronizar', 'desactivar', 'panel', 'acceso'})
+            self.assertIsNotNone(bot.tree.get_command('sugerencias'))
+            self.assertIsNotNone(bot.get_command('sugerencias'))
             self.assertNotIn('on_message', bot.extra_events)
             self.assertIn('on_ready', bot.extra_events)
         finally:

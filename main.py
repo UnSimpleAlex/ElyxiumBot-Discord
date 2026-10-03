@@ -8,7 +8,7 @@ import general_embeds
 import ticket
 import verificacion
 import suggestions
-from common import configure_console, ensure_data_dir
+from common import configure_console, ensure_data_dir, StudioEmbed
 from storage import storage
 
 
@@ -101,7 +101,7 @@ bot = Bot()
 
 @bot.tree.command(name="help", description="Muestra todos los comandos disponibles")
 async def help_slash(interaction: discord.Interaction):
-    embed = discord.Embed(
+    embed = StudioEmbed(
         title="🤖 Elyxium Studio - Comandos",
         description="Lista de comandos disponibles:",
         color=discord.Color.blue(),
@@ -162,10 +162,12 @@ async def help_slash(interaction: discord.Interaction):
 
     embed.add_field(
         name="Sugerencias",
-        value="`/sugerencias configurar` - Canales y rol de revisión\n"
-              "`/sugerencias panel` - Publicar el panel con botón Sugerir\n"
-              "`/sugerencias sincronizar` - Reintentar una publicación\n"
-              "`/sugerencias desactivar` - Detener nuevos formularios",
+        value="`/sugerencias` o `!sugerencias` - Enviar una idea\n"
+              "`/sugerencias_admin acceso` - Canal público y rol de acceso\n"
+              "`/sugerencias_admin configurar` - Canales y rol de revisión\n"
+              "`/sugerencias_admin panel` - Publicar el panel con botón Sugerir\n"
+              "`/sugerencias_admin sincronizar` - Reintentar una publicación\n"
+              "`/sugerencias_admin desactivar` - Detener nuevos formularios",
         inline=False,
     )
 
