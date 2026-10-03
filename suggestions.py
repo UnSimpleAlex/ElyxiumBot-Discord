@@ -91,15 +91,15 @@ class SuggestionService:
 
     def reviewer(self, user, guild_id):
         config = self.config.get(str(guild_id), {})
-        return isinstance(user, discord.Member) and user.guild.id == guild_id and any(
-            role.id == config.get('review_role_id') for role in user.roles
-        )
+        return isinstance(user, discord.Member) and user.guild.id == guild_id and (
+            user.guild_permissions.administrator or any(
+                role.id == config.get('review_role_id') for role in user.roles))
 
     def can_suggest(self, user, guild_id, channel_id):
         config = self.config.get(str(guild_id), {})
         if not config.get('enabled') or not isinstance(user, discord.Member) or user.guild.id != guild_id:
             return False
-        return channel_id == config['public_channel_id'] or any(
+        return user.guild_permissions.administrator or channel_id == config['public_channel_id'] or any(
             role.id == config.get('command_role_id') for role in user.roles
         )
 

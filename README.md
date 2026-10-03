@@ -140,8 +140,9 @@ el logo del bot y el footer `© Elyxium Studio Copyright 2026` desde `common.Stu
 Cada persona tiene un voto: repetir la opcion lo retira y cambiarla reemplaza el voto.
 Hay cinco segundos entre cambios de voto y tres minutos entre sugerencias.
 El estado pendiente es amarillo; aceptado, verde; denegado, rojo. Revisar cierra la votacion.
-Solo el rol configurado puede aceptar, denegar o eliminar, incluso si otro usuario es
-administrador. Denegar y eliminar requieren un motivo. Eliminar borra ambas publicaciones
+El rol configurado y los miembros con permiso Administrador pueden aceptar, denegar
+o eliminar. Los administradores tambien pueden usar los comandos de sugerencias desde
+cualquier canal, sin el rol de acceso. Denegar y eliminar requieren un motivo. Eliminar borra ambas publicaciones
 y conserva un registro de auditoria. Los estados, votos y configuracion se guardan en
 MySQL y JSON; los botones de publicaciones se restauran tras reiniciar.
 

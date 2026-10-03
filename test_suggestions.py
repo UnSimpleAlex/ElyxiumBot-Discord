@@ -29,6 +29,7 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
         user.id = user_id
         user.guild = SimpleNamespace(id=10)
         user.roles = [SimpleNamespace(id=30)] if staff else []
+        user.guild_permissions = SimpleNamespace(administrator=False)
         return SimpleNamespace(user=user, guild_id=10, channel_id=200 if staff else 100,
                                message=SimpleNamespace(id=222 if staff else 111),
                                response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock(), send_modal=AsyncMock()),
@@ -63,13 +64,27 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
         await self.service.vote(interaction, 'abc', 1)
         self.assertEqual(self.record['votes'], {})
 
-    async def test_staff_role_required_even_for_admin(self):
+    async def test_admin_can_review_without_staff_role(self):
         interaction = self.interaction()
         interaction.user.guild_permissions = SimpleNamespace(administrator=True)
         interaction.channel_id = 200
+        interaction.message.id = 222
+        await self.service.review(interaction, 'abc', 'accepted', '')
+        self.assertEqual(self.record['status'], 'accepted')
+        self.service.save.assert_called_once()
+
+    async def test_admin_can_suggest_outside_configured_channel(self):
+        interaction = self.interaction()
+        interaction.user.guild_permissions.administrator = True
+        self.assertTrue(self.service.can_suggest(interaction.user, 10, 999))
+        self.assertFalse(self.service.can_suggest(interaction.user, 11, 999))
+        self.assertFalse(self.service.reviewer(interaction.user, 11))
+
+    async def test_admin_still_cannot_review_from_wrong_message(self):
+        interaction = self.interaction()
+        interaction.user.guild_permissions.administrator = True
         await self.service.review(interaction, 'abc', 'accepted', '')
         self.assertEqual(self.record['status'], 'pending')
-        self.service.save.assert_not_called()
 
     async def test_decision_changes_color_and_closes_votes(self):
         interaction = self.interaction(staff=True)
