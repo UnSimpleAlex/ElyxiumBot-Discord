@@ -20,7 +20,8 @@ PLATFORM_EMOJIS = {
     'TikTok': SERVER_EMOJIS['tiktok'],
     'Twitch': SERVER_EMOJIS['twitch'],
 }
-PLATFORM_COLORS = {'YouTube': 0xE53935, 'Kick': 0x53B820, 'TikTok': 0x20BAC2, 'Twitch': 0x9146FF}
+CREATOR_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791071381/53eebc41-a7fd-4661-bbf6-c34b057f6a6d.png'
+CREATOR_COLOR = 0xFFFFFF
 
 
 def validate_link(value, kind):
@@ -79,16 +80,19 @@ def render_panel():
     embed = StudioEmbed(title='𝙰𝙽𝚄𝙽𝙲𝙸𝙾𝚂 𝙳𝙴 𝙲𝚁𝙴𝙰𝙳𝙾𝚁𝙴𝚂',
                         description=f"{SERVER_EMOJIS['announcement']} **COMPARTE TU CONTENIDO CON LA COMUNIDAD**\n\n"
                                     'Selecciona **DIRECTO** o **VIDEO** y comparte el enlace de tu publicación.',
-                        color=0x26B99A)
+                        color=CREATOR_COLOR)
     embed.add_field(name='PLATAFORMAS', value='  ·  '.join(f'{emoji} {name}' for name, emoji in PLATFORM_EMOJIS.items()), inline=False)
+    embed.set_image(url=CREATOR_BANNER)
     return embed
 
 
 def render_announcement(user, platform, url, kind):
     label = '𝙴𝙽 𝙳𝙸𝚁𝙴𝙲𝚃𝙾' if kind == 'directo' else '𝙽𝚄𝙴𝚅𝙾 𝚅𝙸𝙳𝙴𝙾'
-    return StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {label}',
+    embed = StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {label}',
                        description=f'{user.mention} comparte su {kind} en **{platform.upper()}**.\n\n[Ver {kind}]({url})',
-                       color=PLATFORM_COLORS[platform], timestamp=discord.utils.utcnow())
+                       color=CREATOR_COLOR, timestamp=discord.utils.utcnow())
+    embed.set_image(url=CREATOR_BANNER)
+    return embed
 
 
 class CreatorService:

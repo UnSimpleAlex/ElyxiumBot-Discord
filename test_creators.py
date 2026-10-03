@@ -11,6 +11,17 @@ from common import BRAND_FOOTER, CUSTOM_EMOJI_PATTERN
 
 
 class LinkTests(unittest.TestCase):
+    def test_panel_and_announcements_use_requested_banner_and_white(self):
+        user = SimpleNamespace(mention='<@1>')
+        embeds = [creators.render_panel()]
+        for platform in creators.PLATFORM_EMOJIS:
+            for kind in ('directo', 'video'):
+                embeds.append(creators.render_announcement(user, platform, 'https://example.com', kind))
+        for embed in embeds:
+            self.assertEqual(embed.color.value, 0xFFFFFF)
+            self.assertEqual(embed.image.url, creators.CREATOR_BANNER)
+            self.assertEqual(embed.footer.text, BRAND_FOOTER)
+
     def test_allowed_direct_links(self):
         for url, platform in (
             ('https://www.youtube.com/@creator/live', 'YouTube'),
