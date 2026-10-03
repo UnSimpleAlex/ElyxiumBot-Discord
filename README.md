@@ -112,11 +112,12 @@ Configura dos canales diferentes (el del staff debe ser privado) y un rol de rev
 /sugerencias configurar canal_sugerencias:#sugerencias canal_staff:#revision rol_revision:@Revisor
 ```
 
-Al escribir en el canal publico aparece un boton temporal de tres minutos, exclusivo
-del autor. El boton abre el formulario; Discord no permite abrir modales directamente
-desde un mensaje normal. Al enviarlo se publica la sugerencia y una copia para el staff.
-El mensaje original y el aviso se eliminan si el bot tiene Gestionar mensajes y la
-sugerencia se publico. Si se cancela o vence el formulario, el original se conserva.
+El canal publico tiene un panel permanente con el boton Sugerir, que abre el formulario.
+Al enviarlo se publica la sugerencia y una copia para el staff. El bot vuelve a publicar
+el panel y elimina su copia anterior para dejarlo al final del canal tras cada nueva
+sugerencia. Escribir mensajes normales ya no abre formularios. Estos vencen a los tres
+minutos y solo su autor puede enviarlos. El panel y las votaciones sobreviven al reinicio.
+Las configuraciones existentes reciben su panel automaticamente al arrancar.
 
 Cada persona tiene un voto: repetir la opcion lo retira y cambiarla reemplaza el voto.
 Hay cinco segundos entre cambios de voto y tres minutos entre sugerencias.
@@ -130,13 +131,16 @@ Si falla el envio o se borran mensajes, el rol de revision puede reconstruirlos:
 
 ```txt
 /sugerencias sincronizar sugerencia_id:ID
+/sugerencias panel
 /sugerencias desactivar
 ```
 
-Limites: 500 formularios temporales simultaneos, 10000 registros y 20000 votantes por
+Limites: 500 formularios simultaneos, 10000 registros y 20000 votantes por
 sugerencia. Opera una sola instancia del bot. El rol de revision necesita ver el canal
 privado y su historial; el bot necesita ver ambos canales, enviar mensajes, insertar
-enlaces y leer historial. Gestionar mensajes permite limpiar mensajes de los usuarios.
+enlaces y leer historial. El panel se mueve cuando se publica una sugerencia, no con
+cada mensaje de conversacion ni cada voto. Si falla el envio, se conserva el panel
+anterior; si falla eliminarlo, se guarda su ID para reintentar y queda inactivo.
 
 ## Comandos principales
 

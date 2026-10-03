@@ -163,6 +163,7 @@ async def help_slash(interaction: discord.Interaction):
     embed.add_field(
         name="Sugerencias",
         value="`/sugerencias configurar` - Canales y rol de revisión\n"
+              "`/sugerencias panel` - Publicar el panel con botón Sugerir\n"
               "`/sugerencias sincronizar` - Reintentar una publicación\n"
               "`/sugerencias desactivar` - Detener nuevos formularios",
         inline=False,

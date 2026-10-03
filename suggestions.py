@@ -3,6 +3,7 @@ import asyncio
 import logging
 import time
 import uuid
+from dataclasses import dataclass, field
 
 import discord
 from discord import app_commands
@@ -24,6 +25,28 @@ EMOJI = {
 }
 COLORS = {'pending': 0xF1C40F, 'accepted': 0x2ECC71, 'denied': 0xE74C3C, 'deleted': 0x95A5A6}
 STATUS = {'pending': 'PENDIENTE DE REVISIÓN', 'accepted': 'ACEPTADA', 'denied': 'DENEGADA', 'deleted': 'ELIMINADA'}
+
+
+@dataclass
+class FormRequest:
+    guild_id: int
+    author_id: int
+    channel_id: int
+    deadline: float = field(default_factory=lambda: time.monotonic() + 180)
+    submitted: bool = False
+
+
+def render_panel():
+    embed = discord.Embed(
+        title='𝙱𝚄𝚉𝙾́𝙽 𝙳𝙴 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰𝚂',
+        description=f"{EMOJI['form']} **TU IDEA PUEDE MEJORAR ELYXIUM STUDIO**\n\n"
+                    'Comparte tu propuesta y explica qué aportaría a la comunidad.\n\n'
+                    f"{EMOJI['suggestion']} Presiona **SUGERIR** para completar el formulario. "
+                    'Tu sugerencia se publicará aquí para que la comunidad vote y el staff la revise.',
+        color=0x26B99A,
+    )
+    embed.set_footer(text='Elyxium Studio · Ideas, comunidad y creatividad')
+    return embed
 
 
 def count_votes(record):
@@ -54,6 +77,7 @@ class SuggestionService:
         self.config = read_json(CONFIG_FILE, {})
         self.records = read_json(STATE_FILE, {})
         self.requests = {}
+        self.panel_views = {}
         self.lock = asyncio.Lock()
 
     def save(self):
@@ -66,6 +90,11 @@ class SuggestionService:
         )
 
     def restore(self):
+        for guild_id, config in self.config.items():
+            if config.get('enabled') and config.get('panel_message_id'):
+                view = PanelView(self, int(guild_id))
+                self.panel_views[int(guild_id)] = view
+                self.bot.add_view(view, message_id=config['panel_message_id'])
         for record in self.records.values():
             if record['status'] == 'deleted':
                 continue
@@ -76,6 +105,59 @@ class SuggestionService:
 
     async def channel(self, channel_id):
         return self.bot.get_channel(channel_id) or await self.bot.fetch_channel(channel_id)
+
+    async def move_panel(self, guild_id):
+        config = self.config[str(guild_id)]
+        if not config.get('enabled'):
+            return
+        channel = await self.channel(config['public_channel_id'])
+        old_id = config.get('panel_message_id')
+        old_channel = config.get('panel_channel_id', config['public_channel_id'])
+        # Publish before removing the old panel so a failed send leaves a usable button.
+        view = PanelView(self, guild_id)
+        message = await channel.send(embed=render_panel(), view=view,
+                                     allowed_mentions=discord.AllowedMentions.none())
+        previous_view = self.panel_views.get(guild_id)
+        if previous_view:
+            previous_view.stop()
+        self.panel_views[guild_id] = view
+        config['panel_message_id'], config['panel_channel_id'] = message.id, channel.id
+        if old_id:
+            config.setdefault('obsolete_panels', []).append({'channel_id': old_channel, 'message_id': old_id})
+        write_json(CONFIG_FILE, self.config)
+        await self.clean_old_panels(config)
+
+    async def clean_old_panels(self, config):
+        remaining = []
+        for old in config.get('obsolete_panels', []):
+            try:
+                channel = await self.channel(old['channel_id'])
+                await channel.get_partial_message(old['message_id']).delete()
+            except discord.NotFound:
+                pass
+            except discord.HTTPException:
+                remaining.append(old)
+                logging.exception('Could not remove old suggestion panel')
+        config['obsolete_panels'] = remaining
+        write_json(CONFIG_FILE, self.config)
+
+    async def ensure_panels(self):
+        async with self.lock:
+            for guild_id, config in self.config.items():
+                if not config.get('enabled'):
+                    continue
+                try:
+                    await self.clean_old_panels(config)
+                    if config.get('panel_message_id'):
+                        channel = await self.channel(config['public_channel_id'])
+                        try:
+                            await channel.fetch_message(config['panel_message_id'])
+                            continue
+                        except discord.NotFound:
+                            pass
+                    await self.move_panel(int(guild_id))
+                except discord.HTTPException:
+                    logging.exception('Could not restore suggestion panel in guild %s', guild_id)
 
     async def sync(self, record):
         for staff, prefix in ((False, 'public'), (True, 'staff')):
@@ -91,40 +173,22 @@ class SuggestionService:
             message = await channel.send(embed=render(record, staff), view=view, allowed_mentions=discord.AllowedMentions.none())
             record[f'{prefix}_message_id'] = message.id
             self.save()
-
-    async def on_message(self, message):
-        if message.author.bot or message.guild is None or not isinstance(message.author, discord.Member):
-            return
-        config = self.config.get(str(message.guild.id), {})
-        if not config.get('enabled') or message.channel.id != config.get('public_channel_id'):
-            return
-        key = (message.guild.id, message.author.id)
-        previous = self.requests.get(key)
-        if previous and time.monotonic() < previous.deadline:
-            return
-        if len(self.requests) >= 500:
-            return
-        view = FormView(self, message)
-        self.requests[key] = view
-        try:
-            prompt = discord.Embed(title='𝙽𝚄𝙴𝚅𝙰 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰',
-                                   description=f"{EMOJI['form']} <@{message.author.id}>, completa el formulario para publicar tu idea.\n\nDisponible durante **3 MINUTOS**.", color=0x26B99A)
-            view.message = await message.channel.send(embed=prompt, view=view, delete_after=180,
-                                                       allowed_mentions=discord.AllowedMentions.none())
-        except discord.HTTPException:
-            self.requests.pop(key, None)
-            logging.exception('Cannot send suggestion form prompt')
+            if not staff:
+                try:
+                    await self.move_panel(record['guild_id'])
+                except discord.HTTPException:
+                    logging.exception('Suggestion published, but panel could not be moved; use /sugerencias panel')
 
     async def publish(self, interaction, request, title, description):
         await interaction.response.defer(ephemeral=True, thinking=True)
-        key = (request.source.guild.id, request.source.author.id)
+        key = (request.guild_id, request.author_id)
         async with self.lock:
             config = self.config.get(str(interaction.guild_id), {})
             if (self.requests.get(key) is not request or request.submitted
                     or time.monotonic() >= request.deadline or interaction.user.id != key[1]
                     or interaction.guild_id != key[0] or not config.get('enabled')
-                    or config.get('public_channel_id') != request.source.channel.id):
-                await interaction.followup.send('El formulario venció o ya fue enviado. Escribe de nuevo en el canal.', ephemeral=True)
+                    or config.get('public_channel_id') != request.channel_id):
+                await interaction.followup.send('El formulario venció o ya fue enviado. Presiona Sugerir para abrir otro.', ephemeral=True)
                 return
             if not title.strip() or not description.strip():
                 await interaction.followup.send('El título y la descripción no pueden estar vacíos.', ephemeral=True)
@@ -152,14 +216,6 @@ class SuggestionService:
                 logging.exception('Suggestion delivery incomplete: %s', record['id'])
                 result = f"Sugerencia guardada con ID `{record['id']}`, pero no pude enviar todos los mensajes. El staff puede usar /sugerencias sincronizar."
         await interaction.followup.send(result, ephemeral=True)
-        # Keep the original message until the suggestion has a public copy.
-        if record.get('public_message_id'):
-            for message in (request.source, request.message):
-                if message:
-                    try:
-                        await message.delete()
-                    except discord.HTTPException:
-                        pass
 
     async def vote(self, interaction, suggestion_id, choice):
         await interaction.response.defer(ephemeral=True, thinking=True)
@@ -229,48 +285,48 @@ class SuggestionService:
         await interaction.followup.send('Sugerencia ' + STATUS[action].lower() + '.', ephemeral=True)
 
 
-class FormView(ResponsiveView):
-    def __init__(self, service, source):
-        super().__init__(timeout=180)
-        self.service, self.source = service, source
-        self.deadline = time.monotonic() + 180
-        self.message = None
-        self.submitted = False
-        self.complete.emoji = discord.PartialEmoji.from_str(EMOJI['form'])
+class PanelView(ResponsiveView):
+    def __init__(self, service, guild_id):
+        super().__init__(timeout=None)
+        self.service, self.guild_id = service, guild_id
+        self.suggest.custom_id = f'suggest_panel_{guild_id}'
+        self.suggest.emoji = discord.PartialEmoji.from_str(EMOJI['form'])
 
-    @discord.ui.button(label='Completar sugerencia', style=discord.ButtonStyle.primary)
-    async def complete(self, interaction, button):
-        if interaction.user.id != self.source.author.id:
-            await interaction.response.send_message('Este formulario pertenece a otra persona.', ephemeral=True)
+    @discord.ui.button(label='Sugerir', style=discord.ButtonStyle.primary)
+    async def suggest(self, interaction, button):
+        config = self.service.config.get(str(self.guild_id), {})
+        if (not config.get('enabled') or interaction.guild_id != self.guild_id
+                or interaction.channel_id != config.get('public_channel_id')
+                or interaction.message.id != config.get('panel_message_id')):
+            await interaction.response.send_message('Este panel ya no está activo. Usa el panel más reciente del canal.', ephemeral=True)
             return
-        if self.submitted or time.monotonic() >= self.deadline:
-            await interaction.response.send_message('Este formulario ya no está disponible.', ephemeral=True)
-            return
-        await interaction.response.send_modal(SuggestionModal(self))
-
-    async def on_timeout(self):
-        key = (self.source.guild.id, self.source.author.id)
-        if self.service.requests.get(key) is self:
-            self.service.requests.pop(key, None)
-        if self.message:
-            try:
-                await self.message.delete()
-            except discord.HTTPException:
-                pass
+        now = time.monotonic()
+        self.service.requests = {key: value for key, value in self.service.requests.items()
+                                 if value.deadline > now and not value.submitted}
+        key = (self.guild_id, interaction.user.id)
+        request = self.service.requests.get(key)
+        if request is None:
+            if len(self.service.requests) >= 500:
+                await interaction.response.send_message('Hay muchos formularios abiertos. Intenta de nuevo en unos minutos.', ephemeral=True)
+                return
+            request = FormRequest(self.guild_id, interaction.user.id, interaction.channel_id)
+            self.service.requests[key] = request
+        await interaction.response.send_modal(SuggestionModal(self.service, request))
 
 
 class SuggestionModal(discord.ui.Modal):
-    def __init__(self, request):
+    def __init__(self, service, request):
         super().__init__(title='Nueva sugerencia', timeout=180)
         self.request = request
+        self.service = service
         self.subject = discord.ui.TextInput(label='Título de tu idea', max_length=150)
         self.body = discord.ui.TextInput(label='¿Qué propones y qué mejora?', style=discord.TextStyle.paragraph,
-                                         max_length=2400, default=request.source.content[:2400] or None)
+                                         max_length=2400)
         self.add_item(self.subject)
         self.add_item(self.body)
 
     async def on_submit(self, interaction):
-        await self.request.service.publish(interaction, self.request, self.subject.value, self.body.value)
+        await self.service.publish(interaction, self.request, self.subject.value, self.body.value)
 
     async def on_error(self, interaction, error):
         await ResponsiveView().on_error(interaction, error, self)
@@ -349,7 +405,7 @@ def setup(bot):
     service = SuggestionService(bot)
     bot.suggestions = service
     service.restore()
-    bot.add_listener(service.on_message, 'on_message')
+    bot.add_listener(service.ensure_panels, 'on_ready')
     group = app_commands.Group(name='sugerencias', description='Configuración y revisión de sugerencias')
 
     @group.command(name='configurar', description='Configura el canal público, el canal del staff y el rol de revisión')
@@ -373,9 +429,12 @@ def setup(bot):
         if not reviewer_access.view_channel or not reviewer_access.read_message_history:
             await interaction.followup.send('El rol de revisión necesita acceso al canal del staff y su historial.', ephemeral=True)
             return
-        service.config[str(interaction.guild_id)] = {'enabled': True, 'public_channel_id': canal_sugerencias.id,
-                                                    'staff_channel_id': canal_staff.id, 'review_role_id': rol_revision.id}
-        write_json(CONFIG_FILE, service.config)
+        async with service.lock:
+            old = service.config.get(str(interaction.guild_id), {})
+            service.config[str(interaction.guild_id)] = {**old, 'enabled': True, 'public_channel_id': canal_sugerencias.id,
+                                                        'staff_channel_id': canal_staff.id, 'review_role_id': rol_revision.id}
+            write_json(CONFIG_FILE, service.config)
+            await service.move_panel(interaction.guild_id)
         await interaction.followup.send(f'Sistema activado en {canal_sugerencias.mention}. Revisión: {canal_staff.mention}. Rol autorizado: {rol_revision.mention}.', ephemeral=True)
 
     @group.command(name='sincronizar', description='Reintenta publicar o actualizar los mensajes de una sugerencia')
@@ -402,5 +461,18 @@ def setup(bot):
             config['enabled'] = False
             write_json(CONFIG_FILE, service.config)
         await interaction.response.send_message('Nuevos formularios desactivados. Las sugerencias existentes se conservan.', ephemeral=True)
+
+    @group.command(name='panel', description='Publica o mueve el panel con el botón Sugerir al final del canal')
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    async def panel(interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        config = service.config.get(str(interaction.guild_id), {})
+        if not config.get('enabled'):
+            await interaction.followup.send('Primero configura el sistema con /sugerencias configurar.', ephemeral=True)
+            return
+        async with service.lock:
+            await service.move_panel(interaction.guild_id)
+        await interaction.followup.send('Panel de sugerencias publicado al final del canal.', ephemeral=True)
 
     bot.tree.add_command(group)

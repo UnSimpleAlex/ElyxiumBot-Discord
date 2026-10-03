@@ -1,4 +1,5 @@
 import time
+import asyncio
 import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -112,18 +113,16 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
             self.assertLessEqual(len(embed.description), 4096)
             self.assertTrue(all(len(field.value) <= 1024 for field in embed.fields))
 
-    async def test_form_only_author_can_open(self):
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10), content='idea')
-        view = module.FormView(self.service, source)
-        interaction = self.interaction(user_id=2)
-        await view.complete.callback(interaction)
+    async def test_outdated_panel_cannot_open_form(self):
+        view = module.PanelView(self.service, 10)
+        interaction = self.interaction()
+        self.service.config['10']['panel_message_id'] = 999
+        await view.suggest.callback(interaction)
         interaction.response.send_modal.assert_not_awaited()
         interaction.response.send_message.assert_awaited_once()
 
     async def test_publish_replay_and_partial_delivery_saved(self):
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10),
-                                 channel=SimpleNamespace(id=100), content='idea')
-        view = module.FormView(self.service, source)
+        view = module.FormRequest(10, 1, 100)
         self.service.requests[(10, 1)] = view
         self.service.sync.side_effect = discord.Forbidden(SimpleNamespace(status=403, reason='Forbidden'), 'No permission')
         interaction = self.interaction(user_id=1)
@@ -134,55 +133,129 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(self.service.records), 2)
         self.service.sync.assert_awaited_once()
 
-    async def test_completed_form_publishes_then_cleans_original_messages(self):
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10),
-                                 channel=SimpleNamespace(id=100), content='idea', delete=AsyncMock())
-        view = module.FormView(self.service, source)
-        view.message = SimpleNamespace(delete=AsyncMock())
+    async def test_completed_form_publishes_without_source_message(self):
+        view = module.FormRequest(10, 1, 100)
         self.service.requests[(10, 1)] = view
         interaction = self.interaction(user_id=1)
         async def publish(record):
             interaction.response.defer.assert_awaited_once()
-            source.delete.assert_not_awaited()
             record['public_message_id'] = 333
             record['staff_message_id'] = 444
         self.service.sync.side_effect = publish
         await self.service.publish(interaction, view, 'Idea', 'Una mejora')
-        source.delete.assert_awaited_once()
-        view.message.delete.assert_awaited_once()
         self.assertEqual(len(self.service.records), 2)
         self.assertTrue(view.submitted)
 
-    async def test_expired_form_cannot_publish_and_retains_source(self):
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10),
-                                 channel=SimpleNamespace(id=100), content='idea', delete=AsyncMock())
-        view = module.FormView(self.service, source)
+    async def test_expired_form_cannot_publish(self):
+        view = module.FormRequest(10, 1, 100)
         view.deadline = time.monotonic() - 1
         self.service.requests[(10, 1)] = view
         await self.service.publish(self.interaction(user_id=1), view, 'Idea', 'Una mejora')
         self.assertEqual(len(self.service.records), 1)
-        source.delete.assert_not_awaited()
         self.service.sync.assert_not_awaited()
 
-    async def test_timeout_cleans_only_its_own_prompt(self):
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10), content='idea')
-        view = module.FormView(self.service, source)
-        view.message = SimpleNamespace(delete=AsyncMock())
-        newer = object()
-        self.service.requests[(10, 1)] = newer
-        await view.on_timeout()
-        self.assertIs(self.service.requests[(10, 1)], newer)
-        view.message.delete.assert_awaited_once()
+    async def test_persistent_panel_opens_modal_and_cleans_expired_requests(self):
+        self.service.config['10']['panel_message_id'] = 111
+        expired = module.FormRequest(10, 9, 100, deadline=time.monotonic() - 1)
+        self.service.requests[(10, 9)] = expired
+        view = module.PanelView(self.service, 10)
+        self.assertTrue(view.is_persistent())
+        interaction = self.interaction()
+        await view.suggest.callback(interaction)
+        interaction.response.send_modal.assert_awaited_once()
+        self.assertNotIn((10, 9), self.service.requests)
+        self.assertEqual(self.service.requests[(10, 2)].author_id, 2)
 
     async def test_second_modal_after_recent_submission_is_rejected(self):
         self.record['created_at'] = time.time()
-        source = SimpleNamespace(author=SimpleNamespace(id=1), guild=SimpleNamespace(id=10),
-                                 channel=SimpleNamespace(id=100), content='idea')
-        view = module.FormView(self.service, source)
+        view = module.FormRequest(10, 1, 100)
         self.service.requests[(10, 1)] = view
         await self.service.publish(self.interaction(user_id=1), view, 'Otra idea', 'Duplicada')
         self.service.sync.assert_not_awaited()
         self.assertEqual(len(self.service.records), 1)
+
+    async def test_move_panel_sends_replacement_before_deleting_old(self):
+        config = self.service.config['10']
+        config['panel_message_id'] = 111
+        channel = MagicMock()
+        channel.id = 100
+        events = []
+        async def send(**kwargs):
+            self.assertIsInstance(kwargs['view'], module.PanelView)
+            events.append('send')
+            return SimpleNamespace(id=555)
+        async def delete():
+            self.assertEqual(config['panel_message_id'], 555)
+            events.append('delete')
+        channel.send = AsyncMock(side_effect=send)
+        channel.get_partial_message.return_value.delete = AsyncMock(side_effect=delete)
+        self.service.channel = AsyncMock(return_value=channel)
+        with patch('suggestions.write_json'):
+            await self.service.move_panel(10)
+        self.assertEqual(events, ['send', 'delete'])
+        self.assertEqual(config['obsolete_panels'], [])
+
+    async def test_failed_panel_send_preserves_old_panel(self):
+        self.service.config['10']['panel_message_id'] = 111
+        channel = MagicMock()
+        channel.id = 100
+        channel.send = AsyncMock(side_effect=discord.Forbidden(SimpleNamespace(status=403, reason='Forbidden'), 'No permission'))
+        channel.get_partial_message.return_value.delete = AsyncMock()
+        self.service.channel = AsyncMock(return_value=channel)
+        with self.assertRaises(discord.Forbidden):
+            await self.service.move_panel(10)
+        self.assertEqual(self.service.config['10']['panel_message_id'], 111)
+        channel.get_partial_message.return_value.delete.assert_not_awaited()
+
+    async def test_failed_panel_deletion_keeps_retry_id(self):
+        self.service.config['10']['panel_message_id'] = 111
+        channel = MagicMock()
+        channel.id = 100
+        channel.send = AsyncMock(return_value=SimpleNamespace(id=555))
+        channel.get_partial_message.return_value.delete = AsyncMock(side_effect=discord.Forbidden(SimpleNamespace(status=403, reason='Forbidden'), 'No permission'))
+        self.service.channel = AsyncMock(return_value=channel)
+        with patch('suggestions.write_json'), self.assertLogs(level='ERROR'):
+            await self.service.move_panel(10)
+        self.assertEqual(self.service.config['10']['panel_message_id'], 555)
+        self.assertEqual(self.service.config['10']['obsolete_panels'], [{'channel_id': 100, 'message_id': 111}])
+
+    async def test_ready_does_not_duplicate_existing_panel(self):
+        self.service.config['10']['panel_message_id'] = 111
+        channel = MagicMock()
+        channel.fetch_message = AsyncMock(return_value=SimpleNamespace(id=111))
+        self.service.channel = AsyncMock(return_value=channel)
+        self.service.move_panel = AsyncMock()
+        with patch('suggestions.write_json'):
+            await self.service.ensure_panels()
+        self.service.move_panel.assert_not_awaited()
+
+    async def test_concurrent_forms_leave_one_panel_after_suggestions(self):
+        public, staff = MagicMock(), MagicMock()
+        public.id, staff.id = 100, 200
+        events, issued = [], []
+        async def send_public(**kwargs):
+            kind = 'panel' if isinstance(kwargs['view'], module.PanelView) else 'suggestion'
+            events.append(kind)
+            message_id = 1000 + len(events)
+            issued.append((kind, message_id))
+            return SimpleNamespace(id=message_id)
+        public.send = AsyncMock(side_effect=send_public)
+        public.get_partial_message.return_value.delete = AsyncMock()
+        staff.send = AsyncMock(return_value=SimpleNamespace(id=2000))
+        self.service.channel = AsyncMock(side_effect=lambda channel_id: public if channel_id == 100 else staff)
+        self.service.sync = lambda record: module.SuggestionService.sync(self.service, record)
+        self.service.config['10']['panel_message_id'] = 111
+        first, second = module.FormRequest(10, 3, 100), module.FormRequest(10, 4, 100)
+        self.service.requests.update({(10, 3): first, (10, 4): second})
+        with patch('suggestions.write_json'):
+            await asyncio.gather(
+                self.service.publish(self.interaction(user_id=3), first, 'Primera', 'Idea 1'),
+                self.service.publish(self.interaction(user_id=4), second, 'Segunda', 'Idea 2'),
+            )
+        self.assertEqual(events, ['suggestion', 'panel', 'suggestion', 'panel'])
+        self.assertEqual(self.service.config['10']['panel_message_id'], issued[-1][1])
+        self.assertEqual(public.get_partial_message.return_value.delete.await_count, 2)
+        self.assertEqual(len(self.service.records), 3)
 
     async def test_setup_registers_commands_without_replacing_message_handler(self):
         bot = commands.Bot(command_prefix='!', intents=discord.Intents.default())
@@ -190,8 +263,9 @@ class SuggestionTests(unittest.IsolatedAsyncioTestCase):
             with patch('suggestions.read_json', return_value={}):
                 module.setup(bot)
             group = bot.tree.get_command('sugerencias')
-            self.assertEqual({command.name for command in group.commands}, {'configurar', 'sincronizar', 'desactivar'})
-            self.assertIn('on_message', bot.extra_events)
+            self.assertEqual({command.name for command in group.commands}, {'configurar', 'sincronizar', 'desactivar', 'panel'})
+            self.assertNotIn('on_message', bot.extra_events)
+            self.assertIn('on_ready', bot.extra_events)
         finally:
             await bot.close()
 
