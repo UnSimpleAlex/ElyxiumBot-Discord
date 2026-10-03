@@ -5,7 +5,7 @@ import os
 from typing import Optional
 import asyncio
 
-from common import configure_console, read_json, write_json
+from common import configure_console, read_json, write_json, ResponsiveView
 
 
 configure_console()
@@ -152,7 +152,7 @@ def parse_button_emoji(emoji_text):
     except Exception:
         return emoji_text
 
-class VerificationView(discord.ui.View):
+class VerificationView(ResponsiveView):
     def __init__(self, role_id: int, custom_id: str = None, use_captcha: bool = False, button_emoji: str = "✅"):
         super().__init__(timeout=None)
         self.role_id = role_id
@@ -174,12 +174,20 @@ class VerificationView(discord.ui.View):
         if role in interaction.user.roles:
             await interaction.response.send_message("✅ Ya tienes el rol de verificación.", ephemeral=True)
             return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        bot_member = interaction.guild.me
+        if not bot_member or not bot_member.guild_permissions.manage_roles or role.managed or role.is_default() or role >= bot_member.top_role:
+            await interaction.followup.send(
+                'No puedo asignar el rol. El bot necesita Gestionar roles y su rol debe estar por encima del rol de verificacion.',
+                ephemeral=True,
+            )
+            return
         
         # Si usa captcha, generar código y enviarlo por MD cuando sea posible.
         if self.use_captcha:
             from captcha import create_captcha_code, build_captcha_embed_message, build_captcha_prompt_embed
 
-            await interaction.response.defer(ephemeral=True)
             result = create_captcha_code(str(interaction.user.id), interaction.guild.id, role.id)
             if not result['success']:
                 await interaction.followup.send(result['message'], ephemeral=True)
@@ -193,7 +201,7 @@ class VerificationView(discord.ui.View):
                     dm_kwargs["file"] = captcha_file
                 await interaction.user.send(**dm_kwargs)
                 dm_sent = True
-            except discord.Forbidden:
+            except discord.HTTPException:
                 dm_sent = False
 
             response_embed = build_captcha_prompt_embed(interaction.user, interaction.guild, dm_sent)
@@ -218,16 +226,16 @@ class VerificationView(discord.ui.View):
             # Verificación directa sin captcha
             try:
                 await interaction.user.add_roles(role)
-                await interaction.response.send_message(
+                await interaction.followup.send(
                     f"✅ ¡Te has verificado correctamente! Se te ha asignado el rol {role.name}.",
                     ephemeral=True
                 )
             except discord.Forbidden:
-                await interaction.response.send_message("❌ No tengo permisos para asignar roles.", ephemeral=True)
+                await interaction.followup.send("❌ No tengo permisos para asignar roles.", ephemeral=True)
             except Exception as e:
-                await interaction.response.send_message(f"❌ Error al asignar el rol: {e}", ephemeral=True)
+                await interaction.followup.send('No se pudo asignar el rol. Contacta al staff.', ephemeral=True)
 
-class CaptchaEntryView(discord.ui.View):
+class CaptchaEntryView(ResponsiveView):
     def __init__(self, role_id: int):
         super().__init__(timeout=180)
         self.role_id = role_id
@@ -336,7 +344,7 @@ VERIFICATION_EDIT_OPTIONS = {
     "author_icon": ("Icono autor", "URL del icono del autor", discord.TextStyle.short, 1000),
 }
 
-class EditVerificationEmbedView(discord.ui.View):
+class EditVerificationEmbedView(ResponsiveView):
     def __init__(self, verification_id, embed_builder, user_id):
         super().__init__(timeout=300)
         self.verification_id = verification_id

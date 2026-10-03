@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -8,6 +9,20 @@ from discord import app_commands
 
 
 DATA_DIR = Path("data")
+
+
+class ResponsiveView(discord.ui.View):
+    async def on_error(self, interaction, error, item):
+        logging.error('Button failed: %s', getattr(item, 'custom_id', None),
+                      exc_info=(type(error), error, error.__traceback__))
+        try:
+            message = 'No se pudo completar la accion. Contacta al staff y revisa los permisos del bot.'
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            logging.warning('Interaction expired before error could be delivered')
 
 
 def configure_console():

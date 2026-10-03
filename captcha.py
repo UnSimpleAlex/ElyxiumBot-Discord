@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from discord import ui
 import os
 import secrets
@@ -306,6 +307,12 @@ async def build_captcha_image_file(result):
     background_bytes = await _load_image_bytes(background_url)
     if not background_bytes and captcha_image_config.get("fallback_background_url"):
         background_bytes = await _load_image_bytes(captcha_image_config.get("fallback_background_url"))
+
+    return await asyncio.to_thread(_render_captcha_image, code, background_bytes, width, height)
+
+
+def _render_captcha_image(code, background_bytes, width, height):
+    from PIL import Image
 
     if background_bytes:
         try:

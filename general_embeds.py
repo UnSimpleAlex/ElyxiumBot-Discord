@@ -3,7 +3,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from common import admin_app_check, parse_hex_color, read_json, write_json
+from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView
 
 
 EMBEDS_STORAGE_FILE = "data/embeds_storage.json"
@@ -152,7 +152,7 @@ EMBED_EDIT_OPTIONS = {
 }
 
 
-class EditEmbedView(discord.ui.View):
+class EditEmbedView(ResponsiveView):
     def __init__(self, embed_id, embed_builder, user_id):
         super().__init__(timeout=300)
         self.embed_id = embed_id

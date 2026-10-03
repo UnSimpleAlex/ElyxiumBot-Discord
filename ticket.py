@@ -7,7 +7,7 @@ import io
 from typing import Optional
 from datetime import datetime
 
-from common import configure_console, ensure_data_dir, write_json, read_json
+from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView
 
 
 configure_console()
@@ -351,7 +351,7 @@ class TicketCategorySelect(discord.ui.Select):
         embed.set_footer(text="Elyxium Studio - Sistema de Tickets", icon_url=user.guild.icon.url if user.guild.icon else None)
         return embed
 
-class TicketControlView(discord.ui.View):
+class TicketControlView(ResponsiveView):
     def __init__(self, channel_id: int):
         super().__init__(timeout=None)
         self.channel_id = channel_id
@@ -395,10 +395,10 @@ class TicketControlView(discord.ui.View):
         file_content += "="*50 + "\n\n"
         file_content += transcript_content
         
-        file = discord.File(fp=io.StringIO(file_content), filename=f"transcript-{channel.name}.txt")
+        file = discord.File(fp=io.BytesIO(file_content.encode('utf-8')), filename=f"transcript-{channel.name}.txt")
         await interaction.followup.send("📋 Transcript generado:", file=file, ephemeral=True)
 
-class ConfirmCloseView(discord.ui.View):
+class ConfirmCloseView(ResponsiveView):
     def __init__(self, channel_id: int):
         super().__init__(timeout=30)
         self.channel_id = channel_id
@@ -440,7 +440,7 @@ class ConfirmCloseView(discord.ui.View):
         await interaction.response.send_message("Cierre de ticket cancelado.", ephemeral=True)
         self.stop()
 
-class TicketSelectView(discord.ui.View):
+class TicketSelectView(ResponsiveView):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(TicketCategorySelect())
@@ -457,7 +457,7 @@ TICKET_EDIT_OPTIONS = {
     "author_icon": ("Icono autor", "URL del icono del autor", discord.TextStyle.short, 1000),
 }
 
-class EditTicketEmbedView(discord.ui.View):
+class EditTicketEmbedView(ResponsiveView):
     def __init__(self, config_id, ticket_builder, user_id):
         super().__init__(timeout=300)
         self.config_id = config_id
