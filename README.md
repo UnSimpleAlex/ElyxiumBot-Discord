@@ -135,6 +135,7 @@ Verificacion y captcha:
 ```txt
 /verificacion_setup
 /verificacion_enviar
+/verificacion_reparar
 /verificacion_lista
 /verificacion edit_embed
 /captcha_image_config

@@ -4,6 +4,7 @@ from discord import app_commands
 import os
 from typing import Optional
 import asyncio
+import logging
 
 from common import configure_console, read_json, write_json, ResponsiveView
 
@@ -54,7 +55,8 @@ def normalize_verification_roles(raw_roles):
             normalized[custom_id] = {
                 'role_id': int(role_id),
                 'use_captcha': bool(config.get('use_captcha', True)),
-                'channel_id': config.get('channel_id')
+                'channel_id': config.get('channel_id'),
+                'message_id': config.get('message_id')
             }
         else:
             normalized[custom_id] = {
@@ -508,6 +510,47 @@ def setup_verification_commands(bot):
     """Configura los comandos de verificación"""
     verification_group = app_commands.Group(name="verificacion", description="Comandos avanzados de verificación")
 
+    @bot.tree.command(name='verificacion_reparar', description='Vincula el boton de un mensaje antiguo al rol correcto sin cambiar el embed')
+    @app_commands.guild_only()
+    @app_commands.checks.has_permissions(administrator=True)
+    async def verificacion_reparar(
+        interaction: discord.Interaction, canal: discord.TextChannel,
+        mensaje_id: str, rol: discord.Role, usar_captcha: bool = True,
+    ):
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        if canal.guild.id != interaction.guild.id or rol.guild.id != interaction.guild.id:
+            await interaction.followup.send('El canal y el rol deben pertenecer a este servidor.', ephemeral=True)
+            return
+        try:
+            message = await canal.fetch_message(int(mensaje_id))
+        except (ValueError, discord.HTTPException):
+            await interaction.followup.send('No pude leer el mensaje. Comprueba su ID y mis permisos para ver el canal y su historial.', ephemeral=True)
+            return
+        if message.author.id != bot.user.id:
+            await interaction.followup.send('Solo puedo reparar mensajes enviados por este bot.', ephemeral=True)
+            return
+        candidates = [component for row in message.components for component in row.children
+                      if isinstance(component, discord.Button) and component.custom_id
+                      and (component.custom_id == 'verify_button' or component.custom_id.startswith('verify_button_'))]
+        if len(candidates) != 1:
+            await interaction.followup.send('El mensaje debe tener exactamente un boton de verificacion reconocible.', ephemeral=True)
+            return
+        button = candidates[0]
+        custom_id = button.custom_id
+        verification_roles[custom_id] = {
+            'role_id': rol.id, 'use_captcha': usar_captcha,
+            'channel_id': canal.id, 'message_id': message.id,
+        }
+        write_json(VERIFICATION_ROLES_FILE, verification_roles)
+        from storage import storage
+        if storage.pool:
+            await asyncio.wait_for(storage.flush(), timeout=10)
+        bot.add_view(VerificationView(rol.id, custom_id, usar_captcha, str(button.emoji) if button.emoji else None))
+        await interaction.followup.send(
+            f'Boton reparado: `{custom_id}`. Rol: {rol.mention}. Captcha: {usar_captcha}. El embed se conserva.',
+            ephemeral=True,
+        )
+
     @verification_group.command(name="edit_embed", description="Edita todas las partes de un embed de verificación")
     @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(verification_id="ID guardado, ejemplo: verification_2")
@@ -757,6 +800,25 @@ async def restore_verification_views(bot):
         except Exception as e:
             print(f"❌ Error restaurando vista {custom_id}: {e}")
 
+
+async def respond_to_unregistered_verification(interaction):
+    if interaction.type != discord.InteractionType.component:
+        return
+    custom_id = (interaction.data or {}).get('custom_id', '')
+    if custom_id != 'verify_button' and not custom_id.startswith('verify_button_'):
+        return
+    registered = any(
+        getattr(item, 'custom_id', None) == custom_id
+        for view in interaction.client.persistent_views for item in view.children
+    )
+    logging.info('Verification click: custom_id=%s registered=%s', custom_id, registered)
+    if registered or interaction.response.is_done():
+        return
+    await interaction.response.send_message(
+        'Este panel antiguo no tiene su boton vinculado. Un administrador debe usar /verificacion_reparar sobre este mensaje.',
+        ephemeral=True,
+    )
+
 def setup(bot):
     """Función principal para configurar el módulo de verificación"""
     print("🔧 Configurando sistema de verificación...")
@@ -764,6 +826,7 @@ def setup(bot):
     load_verification_embeds()
     load_verification_buttons()
     setup_verification_commands(bot)
+    bot.add_listener(respond_to_unregistered_verification, 'on_interaction')
     print("✅ Sistema de verificación configurado")
 
     @bot.tree.error

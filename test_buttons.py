@@ -7,6 +7,8 @@ import discord
 from verificacion import VerificationView
 from common import ResponsiveView
 import captcha
+import verificacion
+from discord.ext import commands
 
 
 class VerificationButtonTests(unittest.IsolatedAsyncioTestCase):
@@ -85,6 +87,48 @@ class VerificationButtonTests(unittest.IsolatedAsyncioTestCase):
              patch('captcha._load_image_bytes', new=AsyncMock(return_value=b'background')), \
              patch('captcha._render_captcha_image', side_effect=render):
             self.assertEqual(await captcha.build_captcha_image_file({'code': 'ABC123'}), 'image')
+
+    async def test_unknown_legacy_button_gets_repair_message(self):
+        interaction = self.interaction()
+        interaction.type = discord.InteractionType.component
+        interaction.data = {'custom_id': 'verify_button_verification_1'}
+        interaction.client = SimpleNamespace(persistent_views=[VerificationView(20, 'verify_button_verification_2')])
+        interaction.response.is_done = lambda: False
+        await verificacion.respond_to_unregistered_verification(interaction)
+        interaction.response.send_message.assert_awaited_once()
+        interaction.user.add_roles.assert_not_awaited()
+
+    async def test_registered_button_is_not_answered_twice(self):
+        interaction = self.interaction()
+        interaction.type = discord.InteractionType.component
+        interaction.data = {'custom_id': 'verify_button_verification_2'}
+        interaction.client = SimpleNamespace(persistent_views=[VerificationView(20, 'verify_button_verification_2')])
+        interaction.response.is_done = lambda: False
+        await verificacion.respond_to_unregistered_verification(interaction)
+        interaction.response.send_message.assert_not_awaited()
+
+    async def test_repair_keeps_original_message_and_restores_callback(self):
+        interaction = self.interaction()
+        bot = commands.Bot(command_prefix='!', intents=discord.Intents.none())
+        bot._connection.user = SimpleNamespace(id=55)
+        role = interaction.guild.get_role(20)
+        role.guild = interaction.guild
+        button = MagicMock(spec=discord.Button)
+        button.custom_id = 'verify_button_verification_1'
+        button.emoji = None
+        message = SimpleNamespace(id=123, author=SimpleNamespace(id=55),
+                                  components=[SimpleNamespace(children=[button])])
+        channel = SimpleNamespace(id=99, guild=interaction.guild, fetch_message=AsyncMock(return_value=message))
+        try:
+            verificacion.setup_verification_commands(bot)
+            with patch.dict(verificacion.verification_roles, {}, clear=True), \
+                 patch('verificacion.write_json') as save, patch('storage.storage.pool', None):
+                await bot.tree.get_command('verificacion_reparar').callback(interaction, channel, '123', role, True)
+                save.assert_called_once()
+                self.assertEqual(verificacion.verification_roles[button.custom_id]['message_id'], 123)
+                self.assertTrue(any(view.children[0].custom_id == button.custom_id for view in bot.persistent_views))
+        finally:
+            await bot.close()
 
 
 if __name__ == '__main__':
