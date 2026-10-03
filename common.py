@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import sys
 import unicodedata
 from pathlib import Path
@@ -12,6 +13,35 @@ from discord import app_commands
 DATA_DIR = Path("data")
 BRAND_FOOTER = '© Elyxium Studio Copyright 2026'
 BRAND_LOGO = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png'
+SERVER_EMOJIS = {
+    'document': '<:1418788298029273125:1552144675413172284>',
+    'key': '<:1423423792872689755:1552181100187750430>',
+    'shield': '<:892934806625726514:1555815286085652531>',
+    'pencil': '<:1366121378494812271:1555793470545862756>',
+    'check': '<:1423392237466681355:1552194563832291368>',
+    'ban': '<:1002617024486322356:1555793553114931280>',
+    'warning': '<:1418788295361429564:1552144656786002041>',
+    'wrench': '<:12009211066101309941:1552328661338689636>',
+}
+DEFAULT_EMOJI_PATTERN = re.compile(r'[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?(?:\u200d[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?)*')
+
+
+def server_emoji_text(text, limit=4096):
+    text = str(text)
+    budget = limit - len(DEFAULT_EMOJI_PATTERN.sub('', text))
+    def replace(match):
+        nonlocal budget
+        symbol = match.group()[0]
+        key = {'🔑': 'key', '🔒': 'shield', '🛡': 'shield', '💡': 'pencil',
+               '📝': 'pencil', '✏': 'pencil', '✅': 'check', '✔': 'check',
+               '❌': 'ban', '🚫': 'ban', '⚠': 'warning', '🛠': 'wrench',
+               '🔧': 'wrench'}.get(symbol, 'document')
+        replacement = SERVER_EMOJIS[key]
+        if len(replacement) > budget:
+            return ''
+        budget -= len(replacement)
+        return replacement
+    return DEFAULT_EMOJI_PATTERN.sub(replace, text)
 
 
 class StudioEmbed(discord.Embed):
@@ -20,22 +50,38 @@ class StudioEmbed(discord.Embed):
         super().__init__(**kwargs)
         self.set_footer()
 
-    def __setattr__(self, name, value):
-        if name == 'title' and value:
-            value = str(value)
-            if value.strip() and unicodedata.category(value.lstrip()[0]) != 'So':
-                normalized = ''.join(character for character in unicodedata.normalize('NFKD', value)
+    def to_dict(self):
+        data = super().to_dict()
+        for name in ('description',):
+            if name in data:
+                data[name] = server_emoji_text(data[name])
+        if 'fields' in data:
+            data['fields'] = [dict(field) for field in data['fields']]
+        for field in data.get('fields', []):
+            for name in ('name', 'value'):
+                field[name] = server_emoji_text(field[name], 256 if name == 'name' else 1024)
+        if data.get('title'):
+            title = server_emoji_text(data['title'])
+            if not title.lstrip().startswith(('<:', '<a:')):
+                normalized = ''.join(character for character in unicodedata.normalize('NFKD', title)
                                      if not unicodedata.combining(character)).upper()
-                emoji = '📌'
-                for keyword, candidate in (('CODIGO', '🔑'), ('VERIFIC', '🛡️'),
-                                           ('SUGEREN', '💡'), ('REGLAS', '📜'),
-                                           ('NORMAS', '📜'), ('TICKET', '🎫'),
-                                           ('ERROR', '⚠️')):
+                key = 'document'
+                for keyword, candidate in (('CODIGO', 'key'), ('VERIFIC', 'shield'),
+                                           ('SUGEREN', 'pencil'), ('ERROR', 'warning')):
                     if keyword in normalized:
-                        emoji = candidate
+                        key = candidate
                         break
-                value = f'{emoji} {value}'[:256]
-        super().__setattr__(name, value)
+                title = f'{SERVER_EMOJIS[key]} {title}'
+            # Custom emoji render in descriptions, but not in Discord's native title.
+            heading = f'**{title}**'
+            description = data.get('description', '')
+            combined = heading + ('\n\n' + description if description else '')
+            if len(combined) <= 4096:
+                data.pop('title')
+                data['description'] = combined
+            else:
+                data['title'] = DEFAULT_EMOJI_PATTERN.sub('', self.title).strip()
+        return data
 
     def set_footer(self, *, text=None, icon_url=None):
         return super().set_footer(text=BRAND_FOOTER, icon_url=BRAND_LOGO)
