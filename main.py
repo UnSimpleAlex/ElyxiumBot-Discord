@@ -7,6 +7,7 @@ import captcha
 import general_embeds
 import ticket
 import verificacion
+import suggestions
 from common import configure_console, ensure_data_dir
 from storage import storage
 
@@ -55,6 +56,7 @@ class Bot(commands.Bot):
             print(f"❌ Error restaurando vistas de verificación: {exc}")
 
         self._setup_system("captcha", lambda: captcha.setup(self))
+        self._setup_system("sugerencias", lambda: suggestions.setup(self))
 
         synced = await self.tree.sync()
         print(f"✅ {len(synced)} comandos slash globales sincronizados")
@@ -155,6 +157,14 @@ async def help_slash(interaction: discord.Interaction):
     embed.add_field(
         name="🔑 Captcha",
         value="El usuario presiona **Verificar**, recibe el código por MD si tiene los privados abiertos, y luego pulsa **Ingresar Código**.",
+        inline=False,
+    )
+
+    embed.add_field(
+        name="Sugerencias",
+        value="`/sugerencias configurar` - Canales y rol de revisión\n"
+              "`/sugerencias sincronizar` - Reintentar una publicación\n"
+              "`/sugerencias desactivar` - Detener nuevos formularios",
         inline=False,
     )
 

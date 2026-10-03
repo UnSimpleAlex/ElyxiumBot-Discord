@@ -104,6 +104,40 @@ No se versionan:
 
 Esos archivos son secretos, dependencias instaladas, cache o estado temporal.
 
+## Sugerencias
+
+Configura dos canales diferentes (el del staff debe ser privado) y un rol de revision:
+
+```txt
+/sugerencias configurar canal_sugerencias:#sugerencias canal_staff:#revision rol_revision:@Revisor
+```
+
+Al escribir en el canal publico aparece un boton temporal de tres minutos, exclusivo
+del autor. El boton abre el formulario; Discord no permite abrir modales directamente
+desde un mensaje normal. Al enviarlo se publica la sugerencia y una copia para el staff.
+El mensaje original y el aviso se eliminan si el bot tiene Gestionar mensajes y la
+sugerencia se publico. Si se cancela o vence el formulario, el original se conserva.
+
+Cada persona tiene un voto: repetir la opcion lo retira y cambiarla reemplaza el voto.
+Hay cinco segundos entre cambios de voto y tres minutos entre sugerencias.
+El estado pendiente es amarillo; aceptado, verde; denegado, rojo. Revisar cierra la votacion.
+Solo el rol configurado puede aceptar, denegar o eliminar, incluso si otro usuario es
+administrador. Denegar y eliminar requieren un motivo. Eliminar borra ambas publicaciones
+y conserva un registro de auditoria. Los estados, votos y configuracion se guardan en
+MySQL y JSON; los botones de publicaciones se restauran tras reiniciar.
+
+Si falla el envio o se borran mensajes, el rol de revision puede reconstruirlos:
+
+```txt
+/sugerencias sincronizar sugerencia_id:ID
+/sugerencias desactivar
+```
+
+Limites: 500 formularios temporales simultaneos, 10000 registros y 20000 votantes por
+sugerencia. Opera una sola instancia del bot. El rol de revision necesita ver el canal
+privado y su historial; el bot necesita ver ambos canales, enviar mensajes, insertar
+enlaces y leer historial. Gestionar mensajes permite limpiar mensajes de los usuarios.
+
 ## Comandos principales
 
 Embeds:
