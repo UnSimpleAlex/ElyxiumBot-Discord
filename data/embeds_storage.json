@@ -1,6 +1,6 @@
 {
   "reglas": {
-    "title": "𝚁𝙴𝙶𝙻𝙰𝚂 𝙳𝙴 𝙻𝙰 𝙲𝙾𝙼𝚄𝙽𝙸𝙳𝙰𝙳",
+    "title": "📜 𝚁𝙴𝙶𝙻𝙰𝚂 𝙳𝙴 𝙻𝙰 𝙲𝙾𝙼𝚄𝙽𝙸𝙳𝙰𝙳",
     "description": "<:975766369503170630:1555793559565893712> Bienvenido a **ELYXIUM STUDIO**. Estas normas ayudan a mantener una comunidad segura, respetuosa y agradable para todos.\n\nLee las reglas antes de participar y respétalas en los canales de texto, voz, tickets y actividades del servidor.",
     "color": "#26B99A",
     "image_url": "https://res.cloudinary.com/y08rn1qr/image/upload/v1791004332/26100f4c-3ca6-4b96-b96f-455ca18a382f.png",
@@ -13,42 +13,42 @@
     "fields": [
       {
         "name": "01 · RESPETO Y CONVIVENCIA",
-        "value": "<:1473046951636242580:1555815284118659203> Trata a todos con respeto. No se permiten insultos, acoso, amenazas, discriminación ni ataques personales. Evita provocar conflictos y respeta los límites de los demás.",
+        "value": "<:1473046951636242580:1555815284118659203> <:1366143527997935696:1555793537600192512> Trata a todos con **RESPETO**. No se permiten **INSULTOS, ACOSO, AMENAZAS NI DISCRIMINACIÓN**. Evita los ataques personales y respeta los límites de los demás.",
         "inline": false
       },
       {
         "name": "02 · CONTENIDO APROPIADO",
-        "value": "<:892934806625726514:1555815286085652531> No compartas contenido sexual explícito, violencia gráfica, material ilegal ni enlaces maliciosos. Mantén nombres, avatares y mensajes adecuados para la comunidad.",
+        "value": "<:1473046979167916233:1555815281807458416> <:892934806625726514:1555815286085652531> Está prohibido compartir **CONTENIDO SEXUAL EXPLÍCITO, VIOLENCIA GRÁFICA, MATERIAL ILEGAL O ENLACES MALICIOSOS**. Mantén nombres, avatares y mensajes adecuados para la comunidad.",
         "inline": false
       },
       {
         "name": "03 · SIN SPAM NI PUBLICIDAD NO AUTORIZADA",
-        "value": "<:1473047000592158977:1555815279693529200> Evita mensajes repetidos, cadenas, menciones masivas y saturar el chat o los canales de voz. La publicidad, las invitaciones y la autopromoción requieren autorización del equipo.",
+        "value": "<:1473047000592158977:1555815279693529200> <:1418786420486836314:1552144609126125578> Evita el **SPAM, LAS CADENAS Y LAS MENCIONES MASIVAS**. No satures el chat ni los canales de voz. La publicidad, las invitaciones y la autopromoción requieren **AUTORIZACIÓN DEL EQUIPO**.",
         "inline": false
       },
       {
         "name": "04 · USA EL CANAL CORRECTO",
-        "value": "<:1473047026274144399:1555815277063704616> Respeta el tema de cada canal. Usa los tickets para solicitar ayuda y proporciona información clara. No abras tickets duplicados ni menciones al staff de forma insistente.",
+        "value": "<:1473047026274144399:1555815277063704616> <:1418788298029273125:1552144675413172284> Respeta el tema de cada canal y utiliza **TICKETS PARA SOLICITAR AYUDA**. Proporciona información clara. **NO ABRAS TICKETS DUPLICADOS** ni menciones al staff de forma insistente.",
         "inline": false
       },
       {
         "name": "05 · PRIVACIDAD Y SEGURIDAD",
-        "value": "<:1473047061065765036:1555815274517762048> No publiques datos personales ni conversaciones privadas sin permiso. No compartas contraseñas, tokens o códigos de verificación. Se prohíben las estafas y la suplantación de identidad.",
+        "value": "<:1473047061065765036:1555815274517762048> <:1423423792872689755:1552181100187750430> No publiques datos personales ni conversaciones privadas sin permiso. __**NO COMPARTAS CONTRASEÑAS, TOKENS NI CÓDIGOS DE VERIFICACIÓN**__. Se prohíben las **ESTAFAS Y LA SUPLANTACIÓN DE IDENTIDAD**.",
         "inline": false
       },
       {
         "name": "06 · JUEGO LIMPIO Y RESPETO AL TRABAJO",
-        "value": "<:1473047092904857710:1555815272357568565> No uses trampas, exploits ni herramientas para abusar del bot, los juegos o los servicios del servidor. Respeta la autoría de los recursos y no distribuyas material privado o de pago sin autorización.",
+        "value": "<:1473047092904857710:1555815272357568565> <:1176227736625356971:1555793549713215560> **NO USES TRAMPAS NI EXPLOITS** para abusar del bot, los juegos o los servicios del servidor. Respeta la **AUTORÍA DE LOS RECURSOS** y no distribuyas material privado o de pago sin autorización.",
         "inline": false
       },
       {
         "name": "07 · REPORTES Y MODERACIÓN",
-        "value": "<:1473047114295804038:1555815270109417533> Reporta problemas al equipo con pruebas y sin exponer públicamente a otras personas. Sigue las indicaciones del staff; si no estás de acuerdo con una decisión, solicita una revisión por ticket con respeto.",
+        "value": "<:1473047114295804038:1555815270109417533> <:12009211066101309941:1552328661338689636> Envía tus **REPORTES CON PRUEBAS** y sin exponer públicamente a otras personas. Sigue las indicaciones del staff. Si no estás de acuerdo con una decisión, solicita una **REVISIÓN POR TICKET** con respeto.",
         "inline": false
       },
       {
         "name": "08 · CONSECUENCIAS",
-        "value": "<:1473047140812198038:1555815267295174718> Incumplir las normas puede causar una advertencia, restricción temporal, expulsión o veto según la gravedad y la reincidencia. No evadas sanciones con cuentas alternativas.\n\n<:975769597309517904:1555793557246189639> **AL PARTICIPAR, TE COMPROMETES A RESPETAR ESTAS NORMAS.**",
+        "value": "<:1473047140812198038:1555815267295174718> <:1418788295361429564:1552144656786002041> Incumplir las normas puede causar una **ADVERTENCIA, RESTRICCIÓN TEMPORAL, EXPULSIÓN O VETO**, según la gravedad y la reincidencia. **NO EVADAS SANCIONES** con cuentas alternativas.\n\n<:975769597309517904:1555793557246189639> __**AL PARTICIPAR, TE COMPROMETES A RESPETAR ESTAS NORMAS.**__",
         "inline": false
       }
     ]
