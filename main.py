@@ -8,6 +8,7 @@ import general_embeds
 import ticket
 import verificacion
 import suggestions
+import creators
 from common import configure_console, ensure_data_dir, StudioEmbed
 from storage import storage
 
@@ -57,6 +58,7 @@ class Bot(commands.Bot):
 
         self._setup_system("captcha", lambda: captcha.setup(self))
         self._setup_system("sugerencias", lambda: suggestions.setup(self))
+        self._setup_system("creadores", lambda: creators.setup(self))
 
         synced = await self.tree.sync()
         print(f"✅ {len(synced)} comandos slash globales sincronizados")
@@ -171,6 +173,9 @@ async def help_slash(interaction: discord.Interaction):
         inline=False,
     )
 
+    embed.add_field(name="Creadores", value="`/directo`, `!directo`, `/video`, `!video` - Panel para anunciar contenido\n"
+                    "`/creadores configurar` - Canal y roles Streamer/YouTuber\n"
+                    "`/creadores desactivar` - Desactivar anuncios", inline=False)
     embed.set_footer(text="Elyxium Studio - Sistema Completo con Captcha")
     embed.timestamp = discord.utils.utcnow()
 

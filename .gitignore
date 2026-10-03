@@ -19,4 +19,6 @@ data/captcha_codes.json
 data/active_tickets.json
 data/suggestions.json
 data/suggestions_config.json
+data/creators_config.json
+data/creators_announcements.json
 assets/captcha_preview.png

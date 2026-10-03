@@ -10,6 +10,47 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Captcha con imagen personalizada, fuente `assets/Minecraft.ttf` y fondo configurable.
 - Persistencia MySQL asincrona con copias JSON locales en `data/`.
 - Sincronizacion de comandos slash global y por servidor.
+- Anuncios de directos y videos para roles Streamer/YouTuber.
+
+## Anuncios de Creadores
+
+Un administrador selecciona el canal y los dos roles permitidos:
+
+```txt
+/creadores configurar canal:#contenido rol_streamer:@Streamer rol_yt:@YouTuber espera_segundos:300
+```
+
+Los miembros de cualquiera de esos roles pueden usar `/directo`, `!directo`, `/video`
+o `!video` en ese canal. Los administradores pueden invocarlos desde otros canales,
+pero el anuncio siempre se publica en el canal configurado.
+
+Se muestra un embed temporal con dos botones: **Directo** y **Video**. Solo el autor
+del comando puede abrir sus formularios. El enlace se valida antes de publicar otro
+embed, con el emoji de la plataforma, enlace y footer de Elyxium Studio.
+
+Se admiten enlaces HTTPS de YouTube, Twitch, Kick y TikTok. Para TikTok usa el enlace
+completo `https://www.tiktok.com/@usuario/live` o `.../@usuario/video/ID`, no `vt.tiktok.com`.
+Los videos de Twitch usan `/videos/ID` o enlaces de clips; en Kick, enlaces de videos
+grabados o de clips. Se rechazan enlaces externos, dominios parecidos, credenciales,
+puertos y rutas que no correspondan al contenido. Esta validacion comprueba formato
+y plataforma, no que el contenido exista o que el directo este activo; no se abren
+los enlaces enviados por los usuarios ni se requiere una API externa.
+
+Hay diez segundos entre paneles por servidor y, por defecto, cinco minutos entre
+anuncios por persona, compartidos entre directos y videos. La espera es configurable
+entre 60 y 86400 segundos. Los roles se comprueban de nuevo al enviar el formulario.
+Configuracion y ultimo anuncio por usuario se guardan en MySQL con recuperacion local
+en `data/creators_config.json` y `data/creators_announcements.json`. No se suben a Git.
+
+```txt
+/creadores desactivar
+```
+
+Para enviar las normas guardadas:
+
+```txt
+/embed_enviar canal:#reglas embed_id:reglas
+```
 
 ## Requisitos
 
