@@ -21,4 +21,5 @@ data/suggestions.json
 data/suggestions_config.json
 data/creators_config.json
 data/creators_announcements.json
+data/appearance_migrations.json
 assets/captcha_preview.png

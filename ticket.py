@@ -7,7 +7,7 @@ import io
 from typing import Optional
 from datetime import datetime
 
-from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView, StudioEmbed
+from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView, StudioEmbed, TICKET_BANNER
 
 
 configure_console()
@@ -176,7 +176,7 @@ class TicketBuilder:
         self.title = "🎫 Sistema de Tickets - Elyxium Studio"
         self.description = "Selecciona una categoría para abrir un ticket de soporte"
         self.color = "#0099ff"
-        self.image_url = None
+        self.image_url = TICKET_BANNER
         self.thumbnail_url = None
         self.footer_text = "Elyxium Studio - Soporte"
         self.footer_icon = None

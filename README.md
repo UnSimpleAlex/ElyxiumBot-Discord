@@ -12,6 +12,13 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Sincronizacion de comandos slash global y por servidor.
 - Anuncios de directos y videos para roles Streamer/YouTuber.
 
+Los embeds siempre conservan el titulo nativo de Discord para mantener su tamaño.
+Los emojis del servidor se muestran en la descripcion, no sustituyen el titulo.
+Al arrancar, una migracion unica cambia los banners guardados de tickets y verificacion
+sin tocar textos, campos o botones. Los nuevos banners se guardan en MySQL y JSON.
+Despues se pueden seguir editando sin que el siguiente reinicio deshaga esos cambios.
+Los mensajes antiguos ya enviados necesitan editarse o reenviarse para actualizarse.
+
 ## Anuncios de Creadores
 
 Un administrador selecciona el canal y los dos roles permitidos:

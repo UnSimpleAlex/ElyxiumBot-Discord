@@ -13,6 +13,8 @@ from discord import app_commands
 DATA_DIR = Path("data")
 BRAND_FOOTER = '© Elyxium Studio Copyright 2026'
 BRAND_LOGO = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png'
+TICKET_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791069402/11f5e871-f272-4896-bea5-9564d8b268d5.png'
+VERIFICATION_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791069538/5011a91b-0071-461f-aed7-7628c445bd4c.png'
 SERVER_EMOJIS = {
     'document': '<:1418788298029273125:1552144675413172284>',
     'key': '<:1423423792872689755:1552181100187750430>',
@@ -103,9 +105,15 @@ class StudioEmbed(discord.Embed):
         for field in data.get('fields', []):
             for name in ('name', 'value'):
                 field[name] = server_emoji_text(field[name], 256 if name == 'name' else 1024)
-        if data.get('title'):
-            title = server_emoji_text(data['title'])
-            if not title.lstrip().startswith(('<:', '<a:')):
+        title = str(data.get('title') or '').strip()
+        title = DEFAULT_EMOJI_PATTERN.sub('', CUSTOM_EMOJI_PATTERN.sub('', title)).strip()
+        data['title'] = title[:256] or '𝙴𝙻𝚈𝚇𝙸𝚄𝙼 𝚂𝚃𝚄𝙳𝙸𝙾'
+        description = data.get('description', '')
+        if not description.lstrip().startswith(('<:', '<a:')):
+            existing = CUSTOM_EMOJI_PATTERN.search(str(self.title or ''))
+            if existing:
+                emoji = existing.group()
+            else:
                 normalized = ''.join(character for character in unicodedata.normalize('NFKD', title)
                                      if not unicodedata.combining(character)).upper()
                 key = 'document'
@@ -114,16 +122,10 @@ class StudioEmbed(discord.Embed):
                     if keyword in normalized:
                         key = candidate
                         break
-                title = f'{SERVER_EMOJIS[key]} {title}'
-            # Custom emoji render in descriptions, but not in Discord's native title.
-            heading = f'**{title}**'
-            description = data.get('description', '')
-            combined = heading + ('\n\n' + description if description else '')
+                emoji = SERVER_EMOJIS[key]
+            combined = emoji + (' ' + description if description else '')
             if len(combined) <= 4096:
-                data.pop('title')
                 data['description'] = combined
-            else:
-                data['title'] = DEFAULT_EMOJI_PATTERN.sub('', self.title).strip()
         unique_embed_emojis(data)
         return data
 
@@ -177,6 +179,25 @@ def write_json(path, data):
     os.replace(temp_path, file_path)
     from storage import storage
     storage.enqueue(file_path, data)
+
+
+def update_panel_banners():
+    """Migrate existing panels once, after MySQL has restored their JSON copies."""
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'panel-banners-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    for filename, banner in (('ticket_configs.json', TICKET_BANNER),
+                             ('verification_embeds.json', VERIFICATION_BANNER)):
+        path = DATA_DIR / filename
+        documents = read_json(path, {})
+        for document in documents.values():
+            document['image_url'] = banner
+        if documents:
+            write_json(path, documents)
+    migrations[version] = True
+    write_json(marker_path, migrations)
 
 
 def parse_hex_color(color, fallback=discord.Color.blue()):

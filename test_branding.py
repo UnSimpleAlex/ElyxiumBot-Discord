@@ -1,12 +1,13 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import captcha
 import general_embeds
 import suggestions
 import ticket
 import verificacion
-from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS, StudioEmbed
+from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS, StudioEmbed, TICKET_BANNER, VERIFICATION_BANNER, update_panel_banners
 
 
 class BrandingTests(unittest.TestCase):
@@ -36,13 +37,14 @@ class BrandingTests(unittest.TestCase):
 
     def test_titles_receive_emoji_without_duplicate_prefix(self):
         embed = StudioEmbed(title='𝙲𝙾́𝙳𝙸𝙶𝙾 𝙳𝙴 𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾́𝙽')
-        self.assertTrue(embed.to_dict()['description'].startswith('**' + SERVER_EMOJIS['key']))
+        self.assertTrue(embed.to_dict()['description'].startswith(SERVER_EMOJIS['key']))
+        self.assertEqual(embed.to_dict()['title'], embed.title)
         embed.title = '📜 Normas'
         rendered = embed.to_dict()
-        self.assertNotIn('title', rendered)
+        self.assertEqual(rendered['title'], 'Normas')
         self.assertNotIn('📜', rendered['description'])
         self.assertEqual(rendered['description'].count(SERVER_EMOJIS['document']), 1)
-        self.assertTrue(suggestions.render_panel().to_dict()['description'].startswith('**' + SERVER_EMOJIS['pencil']))
+        self.assertTrue(suggestions.render_panel().to_dict()['description'].startswith(SERVER_EMOJIS['pencil']))
 
     def test_custom_emojis_replace_defaults_without_mutating_saved_fields(self):
         embed = StudioEmbed(title='Normas', description='✅ Confirmado ⚠️ Aviso')
@@ -66,7 +68,7 @@ class BrandingTests(unittest.TestCase):
         text = data['description'] + ''.join(field['name'] + field['value'] for field in data['fields'])
         ids = CUSTOM_EMOJI_PATTERN.findall(text)
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 6)
+        self.assertEqual(len(ids), 5)
         self.assertIn(SERVER_EMOJIS['check'], data['fields'][0]['value'])
         self.assertEqual(data, embed.to_dict())
 
@@ -76,6 +78,32 @@ class BrandingTests(unittest.TestCase):
         ids = CUSTOM_EMOJI_PATTERN.findall(text)
         self.assertEqual(len(ids), len(set(ids)))
         self.assertEqual(text.count('Texto'), 25)
+
+    def test_all_builders_have_native_titles_without_description_headings(self):
+        embeds = [builder.to_embed() for builder in (general_embeds.EmbedBuilder(), ticket.TicketBuilder(), verificacion.EmbedBuilder())]
+        embeds.extend((suggestions.render_panel(), StudioEmbed(title=None), StudioEmbed(title='  ')))
+        for embed in embeds:
+            data = embed.to_dict()
+            self.assertTrue(data['title'].strip())
+            self.assertNotIn('<:', data['title'])
+            self.assertNotIn('**' + data['title'] + '**', data.get('description', ''))
+
+    def test_new_builders_use_requested_banners(self):
+        self.assertEqual(ticket.TicketBuilder().to_embed().image.url, TICKET_BANNER)
+        self.assertEqual(verificacion.EmbedBuilder().to_embed().image.url, VERIFICATION_BANNER)
+
+    def test_banner_migration_preserves_other_saved_settings_and_runs_once(self):
+        ticket_data = {'ticket_1': {'image_url': 'old', 'title': 'Custom title', 'color': '#FF0000'}}
+        verification_data = {'verification_1': {'image_url': 'old', 'description': 'Custom description', 'fields': []}}
+        with patch('common.read_json', side_effect=[{}, ticket_data, verification_data]), patch('common.write_json') as write:
+            update_panel_banners()
+        self.assertEqual(ticket_data['ticket_1'], {'image_url': TICKET_BANNER, 'title': 'Custom title', 'color': '#FF0000'})
+        self.assertEqual(verification_data['verification_1']['description'], 'Custom description')
+        self.assertEqual(verification_data['verification_1']['image_url'], VERIFICATION_BANNER)
+        self.assertEqual(write.call_count, 3)
+        with patch('common.read_json', return_value={'panel-banners-2026-10-03-v1': True}), patch('common.write_json') as write:
+            update_panel_banners()
+        write.assert_not_called()
 
 
 if __name__ == '__main__':

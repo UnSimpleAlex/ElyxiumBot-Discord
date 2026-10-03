@@ -6,7 +6,7 @@ from typing import Optional
 import asyncio
 import logging
 
-from common import configure_console, read_json, write_json, ResponsiveView, StudioEmbed
+from common import configure_console, read_json, write_json, ResponsiveView, StudioEmbed, VERIFICATION_BANNER
 
 
 configure_console()
@@ -262,7 +262,7 @@ class EmbedBuilder:
         self.title = None
         self.description = None
         self.color = None
-        self.image_url = None
+        self.image_url = VERIFICATION_BANNER
         self.thumbnail_url = None
         self.footer_text = None
         self.footer_icon = None
