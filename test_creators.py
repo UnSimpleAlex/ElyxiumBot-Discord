@@ -10,17 +10,36 @@ import creators
 from common import BRAND_FOOTER, CUSTOM_EMOJI_PATTERN
 
 
-class LinkTests(unittest.TestCase):
-    def test_panel_and_announcements_use_requested_banner_and_white(self):
+class LinkTests(unittest.IsolatedAsyncioTestCase):
+    def test_panel_and_announcements_use_requested_banner_and_purple(self):
         user = SimpleNamespace(mention='<@1>')
         embeds = [creators.render_panel()]
         for platform in creators.PLATFORM_EMOJIS:
             for kind in ('directo', 'video'):
                 embeds.append(creators.render_announcement(user, platform, 'https://example.com', kind))
         for embed in embeds:
-            self.assertEqual(embed.color.value, 0xFFFFFF)
+            self.assertEqual(embed.color.value, 0x9B59B6)
             self.assertEqual(embed.image.url, creators.CREATOR_BANNER)
             self.assertEqual(embed.footer.text, BRAND_FOOTER)
+
+    def test_announcement_uses_discord_avatar_and_custom_copy(self):
+        user = SimpleNamespace(mention='<@1>', display_name='Alex',
+                               display_avatar=SimpleNamespace(url='https://cdn.discordapp.com/avatars/1/avatar.png'))
+        embed = creators.render_announcement(user, 'YouTube', 'https://youtu.be/Abcd1234_-x', 'video', 'Mi nuevo video', 'Una partida especial')
+        self.assertEqual(embed.thumbnail.url, user.display_avatar.url)
+        self.assertEqual(embed.author.icon_url, user.display_avatar.url)
+        self.assertEqual(embed.author.name, 'Alex')
+        self.assertIn('Mi nuevo video', embed.title)
+        self.assertIn('Una partida especial', embed.description)
+        self.assertNotIn('[Ver', embed.description)
+        self.assertEqual(embed.url, 'https://youtu.be/Abcd1234_-x')
+
+    async def test_announcement_link_button_uses_validated_destination(self):
+        url = 'https://twitch.tv/creator'
+        view = creators.announcement_link_view('Twitch', url, 'directo')
+        self.assertEqual(view.children[0].url, url)
+        self.assertEqual(view.children[0].label, 'Ver directo')
+        self.assertEqual(view.children[0].style, discord.ButtonStyle.link)
 
     def test_allowed_direct_links(self):
         for url, platform in (

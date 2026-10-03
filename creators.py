@@ -21,7 +21,7 @@ PLATFORM_EMOJIS = {
     'Twitch': SERVER_EMOJIS['twitch'],
 }
 CREATOR_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791071381/53eebc41-a7fd-4661-bbf6-c34b057f6a6d.png'
-CREATOR_COLOR = 0xFFFFFF
+CREATOR_COLOR = 0x9B59B6
 
 
 def validate_link(value, kind):
@@ -86,13 +86,32 @@ def render_panel():
     return embed
 
 
-def render_announcement(user, platform, url, kind):
+def render_announcement(user, platform, url, kind, headline='', summary=''):
     label = '𝙴𝙽 𝙳𝙸𝚁𝙴𝙲𝚃𝙾' if kind == 'directo' else '𝙽𝚄𝙴𝚅𝙾 𝚅𝙸𝙳𝙴𝙾'
-    embed = StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {label}',
-                       description=f'{user.mention} comparte su {kind} en **{platform.upper()}**.\n\n[Ver {kind}]({url})',
-                       color=CREATOR_COLOR, timestamp=discord.utils.utcnow())
+    introduction = (f'{user.mention} **ESTÁ EN DIRECTO** en **{platform.upper()}**.' if kind == 'directo'
+                    else f'{user.mention} comparte un **NUEVO VIDEO** en **{platform.upper()}**.')
+    summary = summary or ('Acompaña la transmisión y comparte este momento con la comunidad.' if kind == 'directo'
+                          else 'Una nueva publicación para descubrir y disfrutar con la comunidad.')
+    embed = StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {headline or label}', url=url,
+                        description=f'{introduction}\n\n{discord.utils.escape_markdown(summary)}',
+                        color=CREATOR_COLOR, timestamp=discord.utils.utcnow())
+    avatar = getattr(getattr(user, 'display_avatar', None), 'url', None)
+    name = getattr(user, 'display_name', None)
+    author = {'name': name if isinstance(name, str) else 'Creador de la comunidad'}
+    if isinstance(avatar, str) and avatar.startswith('https://'):
+        author['icon_url'] = avatar
+        embed.set_thumbnail(url=avatar)
+    embed.set_author(**author)
     embed.set_image(url=CREATOR_BANNER)
     return embed
+
+
+def announcement_link_view(platform, url, kind):
+    view = discord.ui.View(timeout=None)
+    view.add_item(discord.ui.Button(label='Ver directo' if kind == 'directo' else 'Ver video',
+                                   style=discord.ButtonStyle.link, url=url,
+                                   emoji=discord.PartialEmoji.from_str(PLATFORM_EMOJIS[platform])))
+    return view
 
 
 class CreatorService:
@@ -153,8 +172,11 @@ class CreatorService:
                 await interaction.followup.send(f'Espera {remaining + 1} segundos antes de publicar otro anuncio.', ephemeral=True)
                 return
             channel = self.bot.get_channel(config['channel_id']) or await self.bot.fetch_channel(config['channel_id'])
+            headline = str(getattr(getattr(modal, 'headline', None), 'value', '') or '').strip()[:150]
+            summary = str(getattr(getattr(modal, 'summary', None), 'value', '') or '').strip()[:600]
             try:
-                message = await channel.send(embed=render_announcement(interaction.user, platform, url, modal.kind),
+                message = await channel.send(embed=render_announcement(interaction.user, platform, url, modal.kind, headline, summary),
+                                             view=announcement_link_view(platform, url, modal.kind),
                                              allowed_mentions=discord.AllowedMentions.none())
             except discord.HTTPException:
                 logging.exception('Creator announcement could not be sent')
@@ -162,7 +184,8 @@ class CreatorService:
                 return
             modal.submitted = True
             self.announcements[key] = {'created_at': now, 'message_id': message.id, 'channel_id': channel.id,
-                                       'platform': platform, 'kind': modal.kind, 'url': url}
+                                       'platform': platform, 'kind': modal.kind, 'url': url,
+                                       'headline': headline, 'summary': summary}
             write_json(STATE_FILE, self.announcements)
         await interaction.followup.send(f'Anuncio publicado en {channel.mention}.', ephemeral=True)
 
@@ -199,6 +222,11 @@ class CreatorModal(discord.ui.Modal):
         self.deadline, self.submitted = time.monotonic() + 180, False
         self.link = discord.ui.TextInput(label='Enlace de tu ' + kind, placeholder='https://...', max_length=500)
         self.add_item(self.link)
+        self.headline = discord.ui.TextInput(label='Título (opcional)', max_length=150, required=False)
+        self.summary = discord.ui.TextInput(label='Descripción (opcional)', style=discord.TextStyle.paragraph,
+                                           max_length=600, required=False)
+        self.add_item(self.headline)
+        self.add_item(self.summary)
 
     async def on_submit(self, interaction):
         await self.service.publish(interaction, self)

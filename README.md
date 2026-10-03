@@ -36,6 +36,13 @@ Se muestra un embed temporal con dos botones: **Directo** y **Video**. Solo el a
 del comando puede abrir sus formularios. El enlace se valida antes de publicar otro
 embed, con el emoji de la plataforma, enlace y footer de Elyxium Studio.
 
+El panel y los anuncios usan color morado `#9B59B6` y el banner de creadores.
+El formulario permite un titulo y una descripcion opcionales. El anuncio incluye
+un boton **Ver directo** o **Ver video** en lugar de un enlace dentro de la descripcion;
+el titulo tambien enlaza al contenido. El avatar y nombre pertenecen al autor de Discord.
+No se intenta extraer el avatar del canal externo: las APIs de las plataformas requieren
+credenciales o autorizacion del creador, y esas integraciones no estan configuradas.
+
 Se admiten enlaces HTTPS de YouTube, Twitch, Kick y TikTok. Para TikTok usa el enlace
 completo `https://www.tiktok.com/@usuario/live` o `.../@usuario/video/ID`, no `vt.tiktok.com`.
 Los videos de Twitch usan `/videos/ID` o enlaces de clips; en Kick, enlaces de videos
