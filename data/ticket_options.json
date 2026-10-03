@@ -1,0 +1,27 @@
+{
+  "soporte": {
+    "label": "Soporte Técnico",
+    "description": "Ayuda con problemas técnicos",
+    "emoji": "🛠️"
+  },
+  "consulta": {
+    "label": "Consulta General",
+    "description": "Información general del proyecto",
+    "emoji": "💎"
+  },
+  "reportar": {
+    "label": "Reportar Problema",
+    "description": "Reportar un problema o bug",
+    "emoji": "⚠️"
+  },
+  "sugerencia": {
+    "label": "Sugerencia",
+    "description": "Enviar una sugerencia o idea",
+    "emoji": "📝"
+  },
+  "otro": {
+    "label": "Otro",
+    "description": "Cualquier otra consulta",
+    "emoji": "❓"
+  }
+}

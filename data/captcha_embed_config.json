@@ -1,0 +1,13 @@
+{
+  "title": "🔑 Código de Verificación",
+  "description": "Hola {user}, este es tu código para verificarte en **{server}**.\n\nRevisa el código en la imagen.\n\nExpira {expires_relative}.",
+  "image_description": "Hola {user}, este es tu código para verificarte en **{server}**.\n\nRevisa el código en la imagen.\n\nExpira {expires_relative}.",
+  "color": "#3498db",
+  "image_url": null,
+  "thumbnail_url": null,
+  "footer_text": "Elyxium Studio - Verificación",
+  "footer_icon": null,
+  "author_name": null,
+  "author_icon": null,
+  "timestamp": true
+}

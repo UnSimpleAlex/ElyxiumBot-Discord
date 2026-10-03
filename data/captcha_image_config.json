@@ -1,0 +1,18 @@
+{
+  "enabled": true,
+  "background_url": "https://res.cloudinary.com/y08rn1qr/image/upload/v1790175555/captcha.png",
+  "fallback_background_url": "assets/captcha_background.png",
+  "width": 2244,
+  "height": 701,
+  "x": 650,
+  "y": 347,
+  "box_width": 930,
+  "box_height": 185,
+  "font_size": 108,
+  "font_path": "assets/Minecraft.ttf",
+  "font_stroke_width": 0,
+  "pixel_scale": 4,
+  "text_color": "#EAF6FF",
+  "shadow": true,
+  "shadow_color": "#001326"
+}

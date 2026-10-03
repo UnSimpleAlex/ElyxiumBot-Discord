@@ -1,0 +1,11 @@
+{
+  "dm_title": "🔒 Verificación con Captcha",
+  "dm_description": "Te envié el código por mensaje directo.\n\nCuando lo tengas, presiona **Ingresar Código** aquí para completar la verificación.",
+  "dm_color": "#2ecc71",
+  "fallback_title": "🔒 Verificación con Captcha",
+  "fallback_description": "No pude enviarte un MD, probablemente tienes los mensajes directos cerrados.\n\nTe muestro el código aquí de forma privada. Presiona **Ingresar Código** para completar la verificación.",
+  "fallback_color": "#f39c12",
+  "button_label": "Ingresar Código",
+  "button_emoji": null,
+  "timestamp": true
+}
