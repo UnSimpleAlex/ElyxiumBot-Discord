@@ -1,6 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
+from common import update_verification_emojis
 
 import captcha
 import general_embeds
@@ -104,6 +105,23 @@ class BrandingTests(unittest.TestCase):
     def test_new_builders_use_requested_banners(self):
         self.assertEqual(ticket.TicketBuilder().to_embed().image.url, TICKET_BANNER)
         self.assertEqual(verificacion.EmbedBuilder().to_embed().image.url, VERIFICATION_BANNER)
+
+    def test_verification_migration_uses_user_provided_emojis_preserving_settings(self):
+        documents = {'verification_2': {'title': 'Title', 'image_url': 'banner',
+            'description': '<:bad:123> Este procedimiento garantiza una experiencia **ORDENADA **y **PERSONALIZADA **dentro de nuestra comunidad.\n\n<:bad:456> Por favor, **HAZ CLIC EN EL BOTÓN INFERIOR** para continuar con la verificación.'}}
+        with patch('common.read_json', side_effect=[{}, documents]), patch('common.write_json') as save:
+            update_verification_emojis()
+        description = documents['verification_2']['description']
+        self.assertIn(SERVER_EMOJIS['document'] + ' Este procedimiento', description)
+        self.assertIn(SERVER_EMOJIS['online'] + ' Por favor,', description)
+        self.assertIn('**INGRESA EL CÓDIGO**', description)
+        self.assertNotIn('<:bad:', description)
+        self.assertEqual(documents['verification_2']['image_url'], 'banner')
+        self.assertEqual(documents['verification_2']['title'], 'Title')
+        self.assertEqual(save.call_count, 2)
+        with patch('common.read_json', return_value={'verification-emojis-2026-10-03-v1': True}), patch('common.write_json') as save:
+            update_verification_emojis()
+        save.assert_not_called()
 
     def test_banner_migration_preserves_other_saved_settings_and_runs_once(self):
         ticket_data = {'ticket_1': {'image_url': 'old', 'title': 'Custom title', 'color': '#FF0000'}}

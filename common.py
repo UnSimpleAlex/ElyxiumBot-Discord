@@ -198,6 +198,32 @@ def update_panel_banners():
     write_json(marker_path, migrations)
 
 
+def update_verification_emojis():
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'verification-emojis-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    path = DATA_DIR / 'verification_embeds.json'
+    documents = read_json(path, {})
+    for document in documents.values():
+        description = document.get('description')
+        if not isinstance(description, str):
+            continue
+        for phrase, emoji in (('Este procedimiento garantiza', SERVER_EMOJIS['document']),
+                              ('Por favor,', SERVER_EMOJIS['online'])):
+            pattern = r'(?:<a?:[A-Za-z0-9_]+:\d+>\s*)?' + re.escape(phrase)
+            description = re.sub(pattern, lambda match: emoji + ' ' + phrase, description)
+        description = description.replace('**ORDENADA **', '**ORDENADA** ').replace('**PERSONALIZADA **', '**PERSONALIZADA** ')
+        description = description.replace('**HAZ CLIC EN EL BOTÓN INFERIOR** para continuar',
+                                          '**HAZ CLIC EN EL BOTÓN INFERIOR** e **INGRESA EL CÓDIGO** para continuar')
+        document['description'] = description
+    if documents:
+        write_json(path, documents)
+    migrations[version] = True
+    write_json(marker_path, migrations)
+
+
 def parse_hex_color(color, fallback=discord.Color.blue()):
     if not color:
         return fallback
