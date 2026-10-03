@@ -37,14 +37,13 @@ class BrandingTests(unittest.TestCase):
 
     def test_titles_receive_emoji_without_duplicate_prefix(self):
         embed = StudioEmbed(title='𝙲𝙾́𝙳𝙸𝙶𝙾 𝙳𝙴 𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾́𝙽')
-        self.assertTrue(embed.to_dict()['description'].startswith(SERVER_EMOJIS['key']))
-        self.assertEqual(embed.to_dict()['title'], embed.title)
+        self.assertEqual(embed.to_dict()['title'], SERVER_EMOJIS['key'] + ' ' + embed.title)
         embed.title = '📜 Normas'
         rendered = embed.to_dict()
-        self.assertEqual(rendered['title'], 'Normas')
-        self.assertNotIn('📜', rendered['description'])
-        self.assertEqual(rendered['description'].count(SERVER_EMOJIS['document']), 1)
-        self.assertTrue(suggestions.render_panel().to_dict()['description'].startswith(SERVER_EMOJIS['pencil']))
+        self.assertEqual(rendered['title'], SERVER_EMOJIS['document'] + ' Normas')
+        self.assertNotIn('📜', rendered['title'])
+        self.assertNotIn(SERVER_EMOJIS['document'], rendered.get('description', ''))
+        self.assertTrue(suggestions.render_panel().to_dict()['title'].startswith(SERVER_EMOJIS['pencil']))
 
     def test_custom_emojis_replace_defaults_without_mutating_saved_fields(self):
         embed = StudioEmbed(title='Normas', description='✅ Confirmado ⚠️ Aviso')
@@ -65,10 +64,10 @@ class BrandingTests(unittest.TestCase):
         embed = StudioEmbed(title='Sugerencias', description=f'{emoji} Idea {emoji} Propuesta')
         embed.add_field(name=f'{emoji} Detalles', value=f"{SERVER_EMOJIS['check']} Si {emoji} Nota")
         data = embed.to_dict()
-        text = data['description'] + ''.join(field['name'] + field['value'] for field in data['fields'])
+        text = data['title'] + data['description'] + ''.join(field['name'] + field['value'] for field in data['fields'])
         ids = CUSTOM_EMOJI_PATTERN.findall(text)
         self.assertEqual(len(ids), len(set(ids)))
-        self.assertEqual(len(ids), 5)
+        self.assertEqual(len(ids), 6)
         self.assertIn(SERVER_EMOJIS['check'], data['fields'][0]['value'])
         self.assertEqual(data, embed.to_dict())
 
@@ -85,8 +84,22 @@ class BrandingTests(unittest.TestCase):
         for embed in embeds:
             data = embed.to_dict()
             self.assertTrue(data['title'].strip())
-            self.assertNotIn('<:', data['title'])
+            self.assertIsNotNone(CUSTOM_EMOJI_PATTERN.match(data['title']))
             self.assertNotIn('**' + data['title'] + '**', data.get('description', ''))
+
+    def test_original_title_emoji_kept_and_not_repeated_in_description(self):
+        emoji = SERVER_EMOJIS['announcement']
+        embed = StudioEmbed(title=f'{emoji} 𝚂𝙸𝚂𝚃𝙴𝙼𝙰 𝙳𝙴 𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾𝙽', description=f'{emoji} Bienvenido')
+        data = embed.to_dict()
+        self.assertEqual(data['title'], embed.title)
+        self.assertNotIn(emoji, data['description'])
+        self.assertIn('Bienvenido', data['description'])
+        self.assertEqual(embed.description, f'{emoji} Bienvenido')
+
+    def test_long_titles_keep_complete_emoji_and_stay_within_limit(self):
+        data = StudioEmbed(title='A' * 256).to_dict()
+        self.assertLessEqual(len(data['title']), 256)
+        self.assertTrue(data['title'].startswith(SERVER_EMOJIS['document'] + ' '))
 
     def test_new_builders_use_requested_banners(self):
         self.assertEqual(ticket.TicketBuilder().to_embed().image.url, TICKET_BANNER)

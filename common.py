@@ -105,27 +105,25 @@ class StudioEmbed(discord.Embed):
         for field in data.get('fields', []):
             for name in ('name', 'value'):
                 field[name] = server_emoji_text(field[name], 256 if name == 'name' else 1024)
-        title = str(data.get('title') or '').strip()
-        title = DEFAULT_EMOJI_PATTERN.sub('', CUSTOM_EMOJI_PATTERN.sub('', title)).strip()
-        data['title'] = title[:256] or '𝙴𝙻𝚈𝚇𝙸𝚄𝙼 𝚂𝚃𝚄𝙳𝙸𝙾'
-        description = data.get('description', '')
-        if not description.lstrip().startswith(('<:', '<a:')):
-            existing = CUSTOM_EMOJI_PATTERN.search(str(self.title or ''))
-            if existing:
-                emoji = existing.group()
-            else:
-                normalized = ''.join(character for character in unicodedata.normalize('NFKD', title)
-                                     if not unicodedata.combining(character)).upper()
-                key = 'document'
-                for keyword, candidate in (('CODIGO', 'key'), ('VERIFIC', 'shield'),
-                                           ('SUGEREN', 'pencil'), ('ERROR', 'warning')):
-                    if keyword in normalized:
-                        key = candidate
-                        break
-                emoji = SERVER_EMOJIS[key]
-            combined = emoji + (' ' + description if description else '')
-            if len(combined) <= 4096:
-                data['description'] = combined
+        original_title = server_emoji_text(data.get('title') or '')
+        existing = CUSTOM_EMOJI_PATTERN.search(original_title)
+        title = CUSTOM_EMOJI_PATTERN.sub('', original_title).strip() or '𝙴𝙻𝚈𝚇𝙸𝚄𝙼 𝚂𝚃𝚄𝙳𝙸𝙾'
+        if existing:
+            emoji = existing.group()
+            known = {value.split(':')[1]: value for value in SERVER_EMOJIS.values()}
+            emoji = known.get(emoji.split(':')[1], emoji)
+        else:
+            normalized = ''.join(character for character in unicodedata.normalize('NFKD', title)
+                                 if not unicodedata.combining(character)).upper()
+            key = 'document'
+            for keyword, candidate in (('CODIGO', 'key'), ('VERIFIC', 'shield'),
+                                       ('SUGEREN', 'pencil'), ('TICKET', 'announcement'),
+                                       ('ERROR', 'warning')):
+                if keyword in normalized:
+                    key = candidate
+                    break
+            emoji = SERVER_EMOJIS[key]
+        data['title'] = f'{emoji} {title[:256 - len(emoji) - 1]}'
         unique_embed_emojis(data)
         return data
 
