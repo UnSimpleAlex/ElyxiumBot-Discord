@@ -1,9 +1,9 @@
 {
-  "dm_title": "🔒 VERIFICACIÓN CON CAPTCHA",
-  "dm_description": "<:1418788292278751264:1552144638138388570> **VERIFICACIÓN PENDIENTE**\n\nTe envié tu código por **MENSAJE DIRECTO**. Revisa la imagen del captcha en tu conversación con el bot.\n\n<:1418709661737156829:1552151559985692752> Presiona **INGRESAR CÓDIGO** y escribe los seis caracteres para completar la verificación.",
+  "dm_title": null,
+  "dm_description": "<:1418788292278751264:1552144638138388570> **𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾́𝙽 𝙲𝙾𝙽 𝙲𝙰𝙿𝚃𝙲𝙷𝙰**\n\nTe envié tu código por **MENSAJE DIRECTO**. Revisa la imagen del captcha en tu conversación con el bot.\n\n<:1418709661737156829:1552151559985692752> Presiona **INGRESAR CÓDIGO** y escribe los seis caracteres para completar la verificación.",
   "dm_color": "#2ecc71",
-  "fallback_title": "🔒 VERIFICACIÓN CON CAPTCHA",
-  "fallback_description": "<:1418788295361429564:1552144656786002041> **MENSAJE DIRECTO NO DISPONIBLE**\n\nNo pude enviarte el código por privado. La imagen del captcha se muestra a continuación y **SOLO TÚ PUEDES VERLA**.\n\n<:1418709661737156829:1552151559985692752> Presiona **INGRESAR CÓDIGO** y escribe los seis caracteres para completar la verificación.",
+  "fallback_title": null,
+  "fallback_description": "<:1418788292278751264:1552144638138388570> **𝚅𝙴𝚁𝙸𝙵𝙸𝙲𝙰𝙲𝙸𝙾́𝙽 𝙲𝙾𝙽 𝙲𝙰𝙿𝚃𝙲𝙷𝙰**\n\n<:1418788295361429564:1552144656786002041> **MENSAJE DIRECTO NO DISPONIBLE**\nNo pude enviarte el código por privado. La imagen del captcha se muestra a continuación y **SOLO TÚ PUEDES VERLA**.\n\n<:1418709661737156829:1552151559985692752> Presiona **INGRESAR CÓDIGO** y escribe los seis caracteres para completar la verificación.",
   "fallback_color": "#f39c12",
   "button_label": "INGRESAR CÓDIGO",
   "button_emoji": "<:1423423792872689755:1552181100187750430>",
