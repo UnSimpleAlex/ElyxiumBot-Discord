@@ -9,6 +9,7 @@ import ticket
 import verificacion
 import suggestions
 import creators
+import minecraft_info
 from common import configure_console, ensure_data_dir, StudioEmbed, update_panel_banners, update_verification_emojis, update_verification_color, update_ticket_option_emojis, update_faq_banner, update_faq_profile
 from storage import storage
 
@@ -65,6 +66,7 @@ class Bot(commands.Bot):
         self._setup_system("captcha", lambda: captcha.setup(self))
         self._setup_system("sugerencias", lambda: suggestions.setup(self))
         self._setup_system("creadores", lambda: creators.setup(self))
+        self._setup_system("Minecraft", lambda: minecraft_info.setup(self))
 
         synced = await self.tree.sync()
         print(f"✅ {len(synced)} comandos slash globales sincronizados")
@@ -182,6 +184,7 @@ async def help_slash(interaction: discord.Interaction):
     embed.add_field(name="Creadores", value="`/directo`, `!directo`, `/video`, `!video` - Panel para anunciar contenido\n"
                     "`/creadores configurar` - Canal y roles Streamer/YouTuber\n"
                     "`/creadores desactivar` - Desactivar anuncios", inline=False)
+    embed.add_field(name="Minecraft", value="`/ip` o `!ip` - Dirección y versión del servidor Java", inline=False)
     embed.set_footer(text="Elyxium Studio - Sistema Completo con Captcha")
     embed.timestamp = discord.utils.utcnow()
 

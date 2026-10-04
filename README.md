@@ -11,6 +11,7 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Persistencia MySQL asincrona con copias JSON locales en `data/`.
 - Sincronizacion de comandos slash global y por servidor.
 - Anuncios de directos y videos para roles Streamer/YouTuber.
+- `/ip` y `!ip` publicos: servidor Minecraft Java `play.elyxium.online`, version `1.21.11`.
 - FAQ editable, guardada con el ID `faq`, con preguntas frecuentes de la comunidad.
 
 Para publicar o editar las preguntas frecuentes:
