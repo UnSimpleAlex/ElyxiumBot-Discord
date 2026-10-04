@@ -10,6 +10,7 @@ import verificacion
 import suggestions
 import creators
 import minecraft_info
+import whitelist
 from common import configure_console, ensure_data_dir, StudioEmbed, update_panel_banners, update_verification_emojis, update_verification_color, update_ticket_option_emojis, update_faq_banner, update_faq_profile
 from storage import storage
 
@@ -67,6 +68,7 @@ class Bot(commands.Bot):
         self._setup_system("sugerencias", lambda: suggestions.setup(self))
         self._setup_system("creadores", lambda: creators.setup(self))
         self._setup_system("Minecraft", lambda: minecraft_info.setup(self))
+        self._setup_system("whitelist", lambda: whitelist.setup(self))
 
         synced = await self.tree.sync()
         print(f"✅ {len(synced)} comandos slash globales sincronizados")
@@ -185,6 +187,9 @@ async def help_slash(interaction: discord.Interaction):
                     "`/creadores configurar` - Canal y roles Streamer/YouTuber\n"
                     "`/creadores desactivar` - Desactivar anuncios", inline=False)
     embed.add_field(name="Minecraft", value="`/ip` o `!ip` - Dirección y versión del servidor Java", inline=False)
+    embed.add_field(name="Whitelist", value="`/whitelist configurar` - Panel de registro\n"
+                    "`/whitelist agregar`, `/whitelist editar`, `/whitelist eliminar` - Gestionar nicknames\n"
+                    "`/whitelist exportar`, `/whitelist exportar_minusculas` - Descargar la lista", inline=False)
     embed.set_footer(text="Elyxium Studio - Sistema Completo con Captcha")
     embed.timestamp = discord.utils.utcnow()
 

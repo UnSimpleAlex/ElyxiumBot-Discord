@@ -12,6 +12,44 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Sincronizacion de comandos slash global y por servidor.
 - Anuncios de directos y videos para roles Streamer/YouTuber.
 - `/ip` y `!ip` publicos: servidor Minecraft Java `play.elyxium.online`, version `1.21.11`.
+- Whitelist publica con registro individual, panel persistente y administracion privada.
+
+## Whitelist
+
+Un administrador publica el panel permanente con el banner de whitelist:
+
+```txt
+/whitelist configurar canal:#whitelist
+```
+
+El boton **Whitelist** abre un formulario para ingresar el nickname Java. Solo se
+admite un nickname por usuario de Discord y servidor. No se permite registrar un nombre
+que ya pertenezca a otro usuario, incluso cambiando mayusculas. El formato es de 3 a 16
+caracteres ASCII (letras, numeros o guion bajo). Se conserva exactamente su escritura.
+
+El nickname aparece automaticamente debajo de la descripcion del embed, junto a su
+usuario de Discord. La lista usa emojis numericos del servidor y paginas de nueve
+registros para no repetir emojis ni superar los limites de Discord. Los botones y datos
+se restauran al reiniciar; si se elimina el panel, se vuelve a crear. Los registros se
+guardan en MySQL con copias en `data/whitelist_members.json` y `data/whitelist_config.json`.
+
+Solo los administradores pueden usar estos comandos:
+
+```txt
+/whitelist agregar usuario:@Usuario nickname:AlexBM
+/whitelist editar usuario:@Usuario nickname:Alex_Nuevo
+/whitelist eliminar usuario:@Usuario
+/whitelist sincronizar
+/whitelist exportar
+/whitelist exportar_minusculas
+```
+
+Las exportaciones son archivos TXT privados con TODOS los nicknames, sin numeracion,
+emojis ni menciones, uno por linea. La primera conserva la escritura original; la segunda
+los convierte a minusculas. Las exportaciones incluyen todas las paginas, no solo la visible.
+La validacion no verifica que el usuario sea propietario de la cuenta de Minecraft.
+Este sistema gestiona la lista en Discord: no ejecuta comandos en el servidor de Minecraft
+ni modifica automaticamente su archivo `whitelist.json`.
 - FAQ editable, guardada con el ID `faq`, con preguntas frecuentes de la comunidad.
 
 Para publicar o editar las preguntas frecuentes:

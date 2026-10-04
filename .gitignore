@@ -22,4 +22,6 @@ data/suggestions_config.json
 data/creators_config.json
 data/creators_announcements.json
 data/appearance_migrations.json
+data/whitelist_config.json
+data/whitelist_members.json
 assets/captcha_preview.png
