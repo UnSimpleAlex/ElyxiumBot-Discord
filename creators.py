@@ -87,13 +87,15 @@ def render_panel():
 
 
 def render_announcement(user, platform, url, kind, headline='', summary=''):
-    label = '𝙴𝙽 𝙳𝙸𝚁𝙴𝙲𝚃𝙾' if kind == 'directo' else '𝙽𝚄𝙴𝚅𝙾 𝚅𝙸𝙳𝙴𝙾'
-    introduction = (f'{user.mention} **ESTÁ EN DIRECTO** en **{platform.upper()}**.' if kind == 'directo'
-                    else f'{user.mention} comparte un **NUEVO VIDEO** en **{platform.upper()}**.')
-    summary = summary or ('Acompaña la transmisión y comparte este momento con la comunidad.' if kind == 'directo'
-                          else 'Una nueva publicación para descubrir y disfrutar con la comunidad.')
-    embed = StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {headline or label}', url=url,
-                        description=f'{introduction}\n\n{discord.utils.escape_markdown(summary)}',
+    label = '𝙴𝙻 𝙳𝙸𝚁𝙴𝙲𝚃𝙾 𝙲𝙾𝙼𝙸𝙴𝙽𝚉𝙰' if kind == 'directo' else '𝙽𝚄𝙴𝚅𝙾 𝚅𝙸𝙳𝙴𝙾 𝙿𝙰𝚁𝙰 𝚃𝙸'
+    introduction = (f"{SERVER_EMOJIS['announcement']} {user.mention} te invita a su **DIRECTO EN {platform.upper()}**." if kind == 'directo'
+                    else f"{SERVER_EMOJIS['document']} {user.mention} tiene un **NUEVO VIDEO EN {platform.upper()}** para la comunidad.")
+    summary = summary or ('Entra, saluda en el chat y vive la experiencia junto a la comunidad de Elyxium Studio.' if kind == 'directo'
+                          else 'Descubre lo nuevo, deja tu opinión y apoya el contenido de nuestros creadores.')
+    closing = (f"{SERVER_EMOJIS['heart']} **NOS VEMOS EN EL CHAT**" if kind == 'directo'
+               else f"{SERVER_EMOJIS['badge']} **DALE PLAY Y SÉ PARTE**")
+    embed = StudioEmbed(title=f'{PLATFORM_EMOJIS[platform]} {headline or label}',
+                        description=f"{introduction}\n\n{SERVER_EMOJIS['pencil']} {discord.utils.escape_markdown(summary)}\n\n{closing}",
                         color=CREATOR_COLOR, timestamp=discord.utils.utcnow())
     avatar = getattr(getattr(user, 'display_avatar', None), 'url', None)
     name = getattr(user, 'display_name', None)
@@ -112,6 +114,12 @@ def announcement_link_view(platform, url, kind):
                                    style=discord.ButtonStyle.link, url=url,
                                    emoji=discord.PartialEmoji.from_str(PLATFORM_EMOJIS[platform])))
     return view
+
+
+def creator_command_cooldown(message):
+    if message.guild and message.author.guild_permissions.administrator:
+        return None
+    return commands.Cooldown(1, 10)
 
 
 class CreatorService:
@@ -135,9 +143,11 @@ class CreatorService:
         async with self.lock:
             now = time.monotonic()
             self.panel_cooldowns = {key: deadline for key, deadline in self.panel_cooldowns.items() if deadline > now}
-            if guild_id in self.panel_cooldowns:
+            administrator = user.guild_permissions.administrator
+            if not administrator and guild_id in self.panel_cooldowns:
                 return 'Espera diez segundos antes de solicitar otro panel.'
-            self.panel_cooldowns[guild_id] = now + 10
+            if not administrator:
+                self.panel_cooldowns[guild_id] = now + 10
             await channel.send(embed=render_panel(), view=CreatorView(self, user.id, guild_id, channel.id),
                                delete_after=180, allowed_mentions=discord.AllowedMentions.none())
         return 'Panel de creadores publicado.'
@@ -168,7 +178,7 @@ class CreatorService:
                 return
             previous = self.announcements.get(key, {})
             remaining = int(previous.get('created_at', 0) + config.get('cooldown', 300) - now)
-            if remaining >= 0:
+            if remaining >= 0 and not interaction.user.guild_permissions.administrator:
                 await interaction.followup.send(f'Espera {remaining + 1} segundos antes de publicar otro anuncio.', ephemeral=True)
                 return
             channel = self.bot.get_channel(config['channel_id']) or await self.bot.fetch_channel(config['channel_id'])
@@ -253,7 +263,7 @@ def setup(bot):
         bot.tree.add_command(app_commands.Command(name=name, description='Publica el panel de anuncios para creadores', callback=slash))
 
     @bot.command(name='directo', aliases=['video'])
-    @commands.cooldown(1, 10, commands.BucketType.member)
+    @commands.dynamic_cooldown(creator_command_cooldown, commands.BucketType.member)
     async def prefix(ctx):
         if ctx.guild is None:
             await ctx.send('Este comando solo funciona en el servidor.')

@@ -32,7 +32,8 @@ class LinkTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Mi nuevo video', embed.title)
         self.assertIn('Una partida especial', embed.description)
         self.assertNotIn('[Ver', embed.description)
-        self.assertEqual(embed.url, 'https://youtu.be/Abcd1234_-x')
+        self.assertIsNone(embed.url)
+        self.assertNotIn('url', embed.to_dict())
 
     async def test_announcement_link_button_uses_validated_destination(self):
         url = 'https://twitch.tv/creator'
@@ -110,6 +111,40 @@ class CreatorTests(unittest.IsolatedAsyncioTestCase):
         self.modal = SimpleNamespace(author_id=1, guild_id=10, channel_id=100,
             deadline=time.monotonic() + 180, submitted=False, kind='video',
             link=SimpleNamespace(value='https://www.youtube.com/watch?v=Abcd1234_-x'))
+
+    async def test_admin_bypasses_panel_and_publish_cooldowns_without_replaying_form(self):
+        self.user.guild_permissions.administrator = True
+        self.service.panel_cooldowns[10] = time.monotonic() + 10
+        await self.service.panel(self.user, 10, self.channel)
+        await self.service.panel(self.user, 10, self.channel)
+        self.assertEqual(self.channel.send.await_count, 2)
+        self.channel.send.reset_mock()
+        self.service.announcements['10:1'] = {'created_at': time.time()}
+        second = SimpleNamespace(**vars(self.modal))
+        with patch('creators.write_json'):
+            await self.service.publish(self.interaction, self.modal)
+            await self.service.publish(self.interaction, second)
+            await self.service.publish(self.interaction, self.modal)
+        self.assertEqual(self.channel.send.await_count, 2)
+        self.assertTrue(self.modal.submitted)
+        self.assertTrue(second.submitted)
+
+    async def test_prefix_cooldown_exempts_only_server_administrators(self):
+        message = SimpleNamespace(guild=SimpleNamespace(id=10), author=self.user)
+        self.assertIsInstance(creators.creator_command_cooldown(message), commands.Cooldown)
+        self.user.guild_permissions.administrator = True
+        self.assertIsNone(creators.creator_command_cooldown(message))
+        message.guild = None
+        self.assertIsInstance(creators.creator_command_cooldown(message), commands.Cooldown)
+
+    async def test_announcement_emojis_unique_across_title_and_description(self):
+        for platform in creators.PLATFORM_EMOJIS:
+            for kind in ('directo', 'video'):
+                data = creators.render_announcement(self.user, platform, 'https://example.com', kind).to_dict()
+                ids = CUSTOM_EMOJI_PATTERN.findall(data['title'] + data['description'])
+                self.assertEqual(len(ids), len(set(ids)))
+                self.assertEqual(len(ids), 4)
+                self.assertNotIn('url', data)
 
     async def test_roles_channel_guild_admin_and_disabled_system(self):
         self.assertTrue(self.service.authorized(self.user, 10, 100))

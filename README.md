@@ -39,7 +39,7 @@ embed, con el emoji de la plataforma, enlace y footer de Elyxium Studio.
 El panel y los anuncios usan color morado `#9B59B6` y el banner de creadores.
 El formulario permite un titulo y una descripcion opcionales. El anuncio incluye
 un boton **Ver directo** o **Ver video** en lugar de un enlace dentro de la descripcion;
-el titulo tambien enlaza al contenido. El avatar y nombre pertenecen al autor de Discord.
+el titulo no enlaza al contenido. El avatar y nombre pertenecen al autor de Discord.
 No se intenta extraer el avatar del canal externo: las APIs de las plataformas requieren
 credenciales o autorizacion del creador, y esas integraciones no estan configuradas.
 
@@ -51,7 +51,10 @@ puertos y rutas que no correspondan al contenido. Esta validacion comprueba form
 y plataforma, no que el contenido exista o que el directo este activo; no se abren
 los enlaces enviados por los usuarios ni se requiere una API externa.
 
-Hay diez segundos entre paneles por servidor y, por defecto, cinco minutos entre
+Los administradores no tienen cooldown en `/directo`, `/video`, `!directo` ni `!video`,
+ni entre sus anuncios. Siguen sujetos a validacion de enlaces, permisos del bot,
+caducidad del formulario y proteccion contra reenvios del mismo formulario.
+Para los demas usuarios hay diez segundos entre paneles por servidor y, por defecto, cinco minutos entre
 anuncios por persona, compartidos entre directos y videos. La espera es configurable
 entre 60 y 86400 segundos. Los roles se comprueban de nuevo al enviar el formulario.
 Configuracion y ultimo anuncio por usuario se guardan en MySQL con recuperacion local
