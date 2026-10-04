@@ -30,6 +30,17 @@ para actualizar el selector de un mensaje antiguo:
 /ticket_enviar canal:#tickets config_id:ticket_1
 ```
 
+Al seleccionar una categoria se abre un formulario privado antes de crear el ticket.
+Cada categoria tiene preguntas propias: problema y entorno en soporte; hechos, contexto
+y evidencias en reportes; consulta detallada; propuesta y beneficios en sugerencias;
+o asunto y solicitud para otras consultas. Las respuestas se incluyen en el embed,
+en el transcript y en `active_tickets.json`, replicado a MySQL. Se conservan las
+configuraciones existentes y los controles persistentes de tickets ya abiertos.
+El formulario vence a los cinco minutos. Se valida autor, servidor, respuestas
+obligatorias y ausencia de otro ticket abierto; el bloqueo de creacion evita duplicados.
+Los nuevos tickets usan banners por categoria y colores amarillo (soporte), azul claro
+(consulta), anaranjado (reportar), morado (sugerencia) y azul (otro).
+
 Los embeds siempre conservan el titulo nativo de Discord para mantener su tamaño.
 Los titulos llevan un emoji del servidor antes del texto. Ese emoji no se repite
 en la descripcion ni en los campos del mismo embed; no se mueve el titulo a la descripcion.

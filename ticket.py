@@ -4,6 +4,8 @@ from discord import app_commands
 import os
 import asyncio
 import io
+import logging
+import time
 from typing import Optional
 from datetime import datetime
 
@@ -171,6 +173,99 @@ TICKET_OPTION_CHOICES = [
     app_commands.Choice(name="Otro", value="otro"),
 ]
 
+TICKET_DETAILS = {
+    'soporte': {'title': '𝚂𝙾𝙿𝙾𝚁𝚃𝙴 𝚃𝙴́𝙲𝙽𝙸𝙲𝙾', 'color': 0xF1C40F,
+        'banner': 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791074921/a5d66e1d-774d-4bd4-a035-9ec641a55d1e.png',
+        'summary': 'Tu solicitud de **SOPORTE TÉCNICO** está registrada. El staff tiene a continuación la información que compartiste.',
+        'questions': [('Problema principal', 'Describe qué falla y el mensaje de error.', True),
+                      ('Dispositivo o entorno', 'Equipo, sistema, versión o servicio afectado.', True),
+                      ('Desde cuándo ocurre', 'Fecha aproximada y frecuencia del problema.', True),
+                      ('Intentos de solución y evidencias', 'Qué probaste y enlaces a capturas, si tienes.', False)]},
+    'consulta': {'title': '𝙲𝙾𝙽𝚂𝚄𝙻𝚃𝙰 𝙶𝙴𝙽𝙴𝚁𝙰𝙻', 'color': 0x85C1E9,
+        'banner': 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791075300/6298164a-356f-43d3-9b5c-e322e47c0a49.png',
+        'summary': 'Tu **CONSULTA** está registrada. Estos detalles ayudarán al equipo a darte una respuesta clara y útil.',
+        'questions': [('Tema de la consulta', '¿Sobre qué necesitas información?', True),
+                      ('Tu pregunta', 'Explica exactamente qué necesitas saber.', True),
+                      ('Contexto adicional', 'Añade detalles que ayuden al staff.', False)]},
+    'reportar': {'title': '𝚁𝙴𝙿𝙾𝚁𝚃𝙰𝚁 𝙿𝚁𝙾𝙱𝙻𝙴𝙼𝙰', 'color': 0xF39C12,
+        'banner': 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791075684/f8d12b74-5708-4b49-8c60-269f9e5dbce6.png',
+        'summary': 'Tu **REPORTE** está registrado. El equipo revisará los hechos y las evidencias que proporcionaste.',
+        'questions': [('Qué ocurrió', 'Describe el problema o incidente.', True),
+                      ('Dónde y cuándo ocurrió', 'Canal, servicio, fecha y hora aproximada.', True),
+                      ('Pasos para reproducir o contexto', 'Explica cómo sucedió y quiénes participaron.', True),
+                      ('Evidencias', 'Enlaces a capturas o videos; puedes adjuntarlos después.', False)]},
+    'sugerencia': {'title': '𝚃𝚄 𝚂𝚄𝙶𝙴𝚁𝙴𝙽𝙲𝙸𝙰', 'color': 0x9B59B6,
+        'banner': 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791075693/9b8628d0-4524-4943-a4e4-a86a7197e01b.png',
+        'summary': 'Tu **PROPUESTA** está registrada. Gracias por aportar una idea para mejorar la comunidad de Elyxium Studio.',
+        'questions': [('Nombre de tu propuesta', 'Resume tu idea en una frase.', True),
+                      ('Qué propones', 'Describe el cambio que te gustaría ver.', True),
+                      ('Beneficios y detalles', '¿A quién ayuda y cómo podría implementarse?', True)]},
+    'otro': {'title': '𝙾𝚃𝚁𝙰𝚂 𝙲𝙾𝙽𝚂𝚄𝙻𝚃𝙰𝚂', 'color': 0x3498DB,
+        'banner': 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791075809/0265575b-c23c-46da-9ca4-7a68e30ab0c3.png',
+        'summary': 'Tu **SOLICITUD** está registrada. Comparte el contexto necesario para que el equipo pueda orientarte.',
+        'questions': [('Asunto', 'Resume el motivo de tu ticket.', True),
+                      ('Tu solicitud', 'Explica qué necesitas y cómo podemos ayudarte.', True),
+                      ('Información adicional', 'Añade cualquier detalle importante.', False)]},
+}
+
+
+def open_ticket_for(guild, user_id):
+    for channel_id, info in active_tickets.items():
+        if info['user_id'] == user_id and guild.get_channel(int(channel_id)):
+            return guild.get_channel(int(channel_id))
+    return None
+
+
+class TicketIntakeModal(discord.ui.Modal):
+    def __init__(self, category, user_id, guild_id):
+        super().__init__(title=ticket_options[category]['label'][:45], timeout=300)
+        self.category, self.user_id, self.guild_id = category, user_id, guild_id
+        self.deadline, self.submitted = time.monotonic() + 300, False
+        self.questions = []
+        for index, (label, placeholder, required) in enumerate(TICKET_DETAILS[category]['questions']):
+            field = discord.ui.TextInput(label=label, placeholder=(placeholder + ' Sin contraseñas ni tokens.')[:100], required=required,
+                                        max_length=500, style=discord.TextStyle.short if index == 0 else discord.TextStyle.paragraph)
+            self.questions.append(field)
+            self.add_item(field)
+
+    async def on_submit(self, interaction):
+        await interaction.response.defer(ephemeral=True)
+        if (interaction.guild is None or interaction.guild.id != self.guild_id
+                or interaction.user.id != self.user_id or self.submitted or time.monotonic() > self.deadline):
+            await interaction.followup.send('Este formulario venció o no te pertenece.', ephemeral=True)
+            return
+        pending = getattr(interaction.client, '_pending_tickets', None)
+        if pending is None:
+            pending = interaction.client._pending_tickets = set()
+        key = (self.guild_id, self.user_id)
+        if key in pending:
+            await interaction.followup.send('Tu ticket ya se está creando.', ephemeral=True)
+            return
+        existing = open_ticket_for(interaction.guild, self.user_id)
+        if existing:
+            await interaction.followup.send(f'Ya tienes un ticket abierto: {existing.mention}', ephemeral=True)
+            return
+        answers = {label: str(field.value).strip() for (label, _, _), field
+                   in zip(TICKET_DETAILS[self.category]['questions'], self.questions)}
+        if any(len(answer) > 500 for answer in answers.values()):
+            await interaction.followup.send('Cada respuesta debe tener como máximo 500 caracteres.', ephemeral=True)
+            return
+        if any(required and not answers[label] for label, _, required in TICKET_DETAILS[self.category]['questions']):
+            await interaction.followup.send('Completa todas las preguntas obligatorias.', ephemeral=True)
+            return
+        pending.add(key)
+        try:
+            self.submitted = await TicketCategorySelect().create_ticket(interaction, self.category, answers)
+        finally:
+            pending.discard(key)
+
+    async def on_error(self, interaction, error):
+        logging.error('Ticket form failed', exc_info=(type(error), error, error.__traceback__))
+        if interaction.response.is_done():
+            await interaction.followup.send('No pude completar el ticket. Contacta al staff.', ephemeral=True)
+        else:
+            await interaction.response.send_message('No pude completar el ticket. Contacta al staff.', ephemeral=True)
+
 class TicketBuilder:
     def __init__(self):
         self.title = "🎫 Sistema de Tickets - Elyxium Studio"
@@ -249,23 +344,17 @@ class TicketCategorySelect(discord.ui.Select):
         if key in pending:
             await interaction.response.send_message('Tu ticket ya se esta creando.', ephemeral=True)
             return
-        # Verificar si el usuario ya tiene un ticket abierto
-        for channel_id, ticket_info in active_tickets.items():
-            if ticket_info['user_id'] == interaction.user.id:
-                channel = interaction.guild.get_channel(int(channel_id))
-                if channel:
-                    await interaction.response.send_message(f"❌ Ya tienes un ticket abierto: {channel.mention}", ephemeral=True)
-                    return
-        
+        existing = open_ticket_for(interaction.guild, interaction.user.id)
+        if existing:
+            await interaction.response.send_message(f'Ya tienes un ticket abierto: {existing.mention}', ephemeral=True)
+            return
         category = self.values[0]
-        pending.add(key)
-        try:
-            await interaction.response.defer(ephemeral=True)
-            await self.create_ticket(interaction, category)
-        finally:
-            pending.discard(key)
+        if category not in TICKET_DETAILS:
+            await interaction.response.send_message('Esta categoría no está disponible.', ephemeral=True)
+            return
+        await interaction.response.send_modal(TicketIntakeModal(category, interaction.user.id, interaction.guild.id))
 
-    async def create_ticket(self, interaction: discord.Interaction, category: str):
+    async def create_ticket(self, interaction: discord.Interaction, category: str, answers=None):
         guild = interaction.guild
         user = interaction.user
         
@@ -274,6 +363,9 @@ class TicketCategorySelect(discord.ui.Select):
             ticket_category = guild.get_channel(TICKET_CATEGORY_ID)
         
         support_role = guild.get_role(SUPPORT_ROLE_ID) if SUPPORT_ROLE_ID != 0 else None
+        if support_role and support_role.is_default():
+            await interaction.followup.send('El rol de soporte no puede ser @everyone. Contacta al administrador.', ephemeral=True)
+            return False
         
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
@@ -295,14 +387,16 @@ class TicketCategorySelect(discord.ui.Select):
             
             active_tickets[ticket_channel.id] = {
                 'user_id': user.id,
+                'guild_id': guild.id,
                 'category': category,
+                'answers': answers or {},
                 'created_at': datetime.now().isoformat(),
                 'status': 'open'
             }
             
             save_active_tickets()
             
-            embed = self.create_category_embed(category, user)
+            embed = self.create_category_embed(category, user, answers)
             view = TicketControlView(ticket_channel.id)
             
             mention_text = f"{user.mention}"
@@ -310,45 +404,30 @@ class TicketCategorySelect(discord.ui.Select):
                 mention_text += f" {support_role.mention}"
             
             await ticket_channel.send(content=mention_text, embed=embed, view=view)
-            await interaction.followup.send(f"✅ Ticket creado exitosamente: {ticket_channel.mention}", ephemeral=True)
+            await interaction.followup.send(f"{SERVER_EMOJIS['check']} Ticket creado: {ticket_channel.mention}", ephemeral=True)
+            return True
             
         except discord.Forbidden:
-            await interaction.followup.send("❌ No tengo permisos para crear canales de tickets.", ephemeral=True)
-        except Exception as e:
+            await interaction.followup.send('No tengo permisos para crear o enviar el ticket.', ephemeral=True)
+        except Exception:
+            logging.exception('Ticket creation failed')
             await interaction.followup.send('No se pudo completar el ticket. Contacta al staff.', ephemeral=True)
+        return False
 
-    def create_category_embed(self, category: str, user: discord.Member):
-        category_info = {
-            "soporte": {
-                "title": "🛠️ Soporte Técnico",
-                "description": f"¡Hola {user.mention}! Gracias por contactarnos.\n\n**Por favor proporciona la siguiente información:**\n• **Descripción del problema:** Explica detalladamente el issue\n• **¿Cuándo ocurrió?** Fecha y hora aproximada\n• **Capturas de pantalla:** Si es posible, adjunta evidencia\n\nUn miembro del equipo te atenderá pronto.",
-                "color": 0x00FF00
-            },
-            "consulta": {
-                "title": "💎 Consulta General",
-                "description": f"¡Hola {user.mention}! Estamos aquí para ayudarte.\n\n**Por favor describe:**\n• **Tu consulta:** Explica qué necesitas saber\n• **Información adicional:** Cualquier detalle relevante\n\nUn miembro del equipo responderá tus dudas pronto.",
-                "color": 0xFFD700
-            },
-            "reportar": {
-                "title": "⚠️ Reportar Problema",
-                "description": f"¡Hola {user.mention}! Gracias por reportar.\n\n**Por favor proporciona:**\n• **Descripción del problema:** ¿Qué ocurrió?\n• **Pasos para reproducir:** ¿Cómo sucedió?\n• **Evidencia:** Capturas de pantalla o videos\n• **Fecha y hora:** ¿Cuándo ocurrió?\n\nEl equipo revisará tu reporte y tomará las medidas necesarias.",
-                "color": 0xFF4444
-            },
-            "sugerencia": {
-                "title": "📝 Sugerencia",
-                "description": f"¡Hola {user.mention}! Nos encanta recibir sugerencias.\n\n**Por favor describe:**\n• **Tu sugerencia:** ¿Qué propones?\n• **Beneficios:** ¿Por qué sería útil?\n• **Detalles adicionales:** Cualquier información extra\n\nEl equipo evaluará tu propuesta.",
-                "color": 0x9B59B6
-            },
-            "otro": {
-                "title": "❓ Consulta General",
-                "description": f"¡Hola {user.mention}! Estamos aquí para ayudarte.\n\n**Por favor describe:**\n• **Tu consulta o problema:** Explica detalladamente\n• **Información adicional:** Cualquier detalle relevante\n\nUn miembro del equipo te ayudará pronto.",
-                "color": 0x95A5A6
-            }
-        }
-        
-        info = category_info.get(category, category_info["otro"])
-        embed = StudioEmbed(title=info["title"], description=info["description"], color=info["color"], timestamp=discord.utils.utcnow())
-        embed.set_footer(text="Elyxium Studio - Sistema de Tickets", icon_url=user.guild.icon.url if user.guild.icon else None)
+    def create_category_embed(self, category: str, user: discord.Member, answers=None):
+        category = category if category in TICKET_DETAILS else 'otro'
+        info = TICKET_DETAILS[category]
+        embed = StudioEmbed(title=f'{TICKET_OPTION_EMOJIS[category]} {info["title"]}',
+                            description=f"{SERVER_EMOJIS['shield']} {user.mention}, {info['summary']}\n\n"
+                                        f"{SERVER_EMOJIS['heart']} **ATENCIÓN PERSONALIZADA**\n"
+                                        'Puedes adjuntar capturas o archivos en este canal. No compartas contraseñas, tokens ni datos sensibles.',
+                            color=info['color'], timestamp=discord.utils.utcnow())
+        embed.set_image(url=info['banner'])
+        question_emojis = ('document', 'pencil', 'online', 'key')
+        for index, (label, _, _) in enumerate(info['questions']):
+            answer = (answers or {}).get(label) or 'No proporcionado.'
+            embed.add_field(name=f"{SERVER_EMOJIS[question_emojis[index]]} {label.upper()}",
+                            value=discord.utils.escape_markdown(answer), inline=False)
         return embed
 
 class TicketControlView(ResponsiveView):
@@ -359,7 +438,7 @@ class TicketControlView(ResponsiveView):
         self.close_ticket.custom_id = f"close_ticket_{channel_id}"
         self.generate_transcript.custom_id = f"transcript_ticket_{channel_id}"
 
-    @discord.ui.button(label="🔒 Cerrar Ticket", style=discord.ButtonStyle.danger)
+    @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.danger, emoji=SERVER_EMOJIS['ban'])
     async def close_ticket(self, interaction: discord.Interaction, button: discord.ui.Button):
         support_role = interaction.guild.get_role(SUPPORT_ROLE_ID) if SUPPORT_ROLE_ID != 0 else None
         if not (interaction.user.guild_permissions.administrator or 
@@ -371,7 +450,7 @@ class TicketControlView(ResponsiveView):
         confirm_view = ConfirmCloseView(self.channel_id)
         await interaction.response.send_message("🔒 **¿Estás seguro de que quieres cerrar este ticket?**\nEsta acción no se puede deshacer.", view=confirm_view, ephemeral=True)
 
-    @discord.ui.button(label="📋 Transcript", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Transcript", style=discord.ButtonStyle.secondary, emoji=SERVER_EMOJIS['document'])
     async def generate_transcript(self, interaction: discord.Interaction, button: discord.ui.Button):
         support_role = interaction.guild.get_role(SUPPORT_ROLE_ID) if SUPPORT_ROLE_ID != 0 else None
         if not (interaction.user.guild_permissions.administrator or (support_role and support_role in interaction.user.roles)):
@@ -386,6 +465,10 @@ class TicketControlView(ResponsiveView):
         async for message in channel.history(limit=5000, oldest_first=True):
             timestamp = message.created_at.strftime("%Y-%m-%d %H:%M:%S")
             content = message.content or "[Contenido multimedia/embed]"
+            for embed in message.embeds:
+                details = [embed.title or '', embed.description or '']
+                details.extend(f'{field.name}: {field.value}' for field in embed.fields)
+                content += '\n' + '\n'.join(part for part in details if part)
             messages.append(f"[{timestamp}] {message.author}: {content}")
         
         transcript_content = "\n".join(messages)
@@ -403,7 +486,7 @@ class ConfirmCloseView(ResponsiveView):
         super().__init__(timeout=30)
         self.channel_id = channel_id
 
-    @discord.ui.button(label="✅ Confirmar", style=discord.ButtonStyle.success)
+    @discord.ui.button(label="Confirmar", style=discord.ButtonStyle.success, emoji=SERVER_EMOJIS['check'])
     async def confirm_close(self, interaction: discord.Interaction, button: discord.ui.Button):
         info = active_tickets.get(self.channel_id)
         support = interaction.guild.get_role(SUPPORT_ROLE_ID) if interaction.guild else None
@@ -435,7 +518,7 @@ class ConfirmCloseView(ResponsiveView):
         else:
             await interaction.response.send_message("❌ Error al cerrar el ticket.", ephemeral=True)
 
-    @discord.ui.button(label="❌ Cancelar", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.secondary, emoji=SERVER_EMOJIS['warning'])
     async def cancel_close(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message("Cierre de ticket cancelado.", ephemeral=True)
         self.stop()
@@ -465,7 +548,7 @@ class EditTicketEmbedView(ResponsiveView):
         self.user_id = user_id
         self.add_item(EditTicketFieldSelect(config_id, ticket_builder, user_id))
     
-    @discord.ui.button(label="⏰ Activar/Desactivar Timestamp", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="Activar/Desactivar Timestamp", style=discord.ButtonStyle.secondary, emoji=SERVER_EMOJIS['online'])
     async def toggle_timestamp(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.user_id:
             await interaction.response.send_message("❌ Solo quien configuró el ticket puede editarlo.", ephemeral=True)
