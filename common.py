@@ -37,6 +37,13 @@ SERVER_EMOJIS = {
     'twitch': '<:1423392306429558824:1556072539539898469>',
 }
 CUSTOM_EMOJI_PATTERN = re.compile(r'<a?:[A-Za-z0-9_]+:(\d+)>')
+TICKET_OPTION_EMOJIS = {
+    'soporte': SERVER_EMOJIS['wrench'],
+    'consulta': SERVER_EMOJIS['document'],
+    'reportar': SERVER_EMOJIS['warning'],
+    'sugerencia': SERVER_EMOJIS['pencil'],
+    'otro': SERVER_EMOJIS['community'],
+}
 DEFAULT_EMOJI_PATTERN = re.compile(r'[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?(?:\u200d[\U0001f000-\U0001faff\u2600-\u27bf][\ufe0e\ufe0f]?)*')
 
 
@@ -236,6 +243,23 @@ def update_verification_color():
         document['color'] = '#2ECC71'
     if documents:
         write_json(path, documents)
+    migrations[version] = True
+    write_json(marker_path, migrations)
+
+
+def update_ticket_option_emojis():
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'ticket-option-emojis-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    path = DATA_DIR / 'ticket_options.json'
+    options = read_json(path, {})
+    for key, emoji in TICKET_OPTION_EMOJIS.items():
+        if isinstance(options.get(key), dict):
+            options[key]['emoji'] = emoji
+    if options:
+        write_json(path, options)
     migrations[version] = True
     write_json(marker_path, migrations)
 

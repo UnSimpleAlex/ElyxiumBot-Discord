@@ -78,5 +78,54 @@
     "author_icon": null,
     "fields": [],
     "timestamp": false
+  },
+  "faq": {
+    "title": "<:975769597309517904:1555793557246189639> 𝙿𝚁𝙴𝙶𝚄𝙽𝚃𝙰𝚂 𝙵𝚁𝙴𝙲𝚄𝙴𝙽𝚃𝙴𝚂",
+    "description": "<:975766369503170630:1555793559565893712> **RESUELVE TUS DUDAS SOBRE ELYXIUM STUDIO**\n\nEncuentra aquí las respuestas a las consultas más habituales de nuestra comunidad.",
+    "color": "#26B99A",
+    "image_url": null,
+    "thumbnail_url": "https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png",
+    "footer_text": "© Elyxium Studio Copyright 2026",
+    "footer_icon": "https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png",
+    "author_name": null,
+    "author_icon": null,
+    "fields": [
+      {
+        "name": "<:892934806625726514:1555815286085652531> ¿CÓMO ACCEDO A LOS CANALES?",
+        "value": "Completa la **VERIFICACIÓN** del servidor. Presiona **VERIFICAR**, revisa el código de la imagen y usa **INGRESAR CÓDIGO** para recibir tu rol.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:1423423792872689755:1552181100187750430> ¿QUÉ HAGO SI NO RECIBO EL CÓDIGO?",
+        "value": "Revisa tus mensajes privados y permite mensajes del servidor. Si el código venció, solicita uno nuevo. **NO COMPARTAS TU CÓDIGO** con otras personas.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:12009211066101309941:1552328661338689636> ¿CÓMO CONTACTO AL EQUIPO DE SOPORTE?",
+        "value": "Abre un **TICKET** y elige la categoría que corresponda. Explica tu consulta con detalles y adjunta capturas si ayudan. No compartas contraseñas ni datos sensibles.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:1418788298029273125:1552144675413172284> ¿DÓNDE PUEDO CONSULTAR LAS NORMAS?",
+        "value": "Lee el embed de **NORMAS** publicado en el servidor antes de participar. Se aplica a los canales de texto, voz, tickets y actividades de la comunidad.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:1366121378494812271:1555793470545862756> ¿CÓMO ENVÍO UNA SUGERENCIA?",
+        "value": "Usa el botón **SUGERIR** del panel de sugerencias. La comunidad podrá votar tu propuesta y el staff la revisará. Los votos no garantizan su aceptación.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:1423392300423450707:1556072532405256372> ¿PUEDO COMPARTIR MIS DIRECTOS Y VIDEOS?",
+        "value": "Los roles **STREAMER** o **YOUTUBER** autorizados pueden usar el panel de creadores en el canal configurado. Se admiten enlaces de **YOUTUBE, TWITCH, KICK Y TIKTOK**.\n​",
+        "inline": false
+      },
+      {
+        "name": "<:1418788295361429564:1552144656786002041> ¿QUÉ HAGO SI UN BOTÓN NO FUNCIONA?",
+        "value": "Vuelve a intentarlo desde el panel más reciente. Si el problema continúa, avisa al staff con una captura y el nombre del botón. **NUNCA ENVÍES TU CONTRASEÑA O TOKEN**.\n​",
+        "inline": false
+      }
+    ],
+    "timestamp": false
   }
 }

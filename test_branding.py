@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from common import update_verification_emojis, update_verification_color
+from common import update_verification_emojis, update_verification_color, update_ticket_option_emojis, TICKET_OPTION_EMOJIS
 
 import captcha
 import general_embeds
@@ -12,6 +12,48 @@ from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS
 
 
 class BrandingTests(unittest.TestCase):
+    def test_faq_native_title_footer_unique_server_emojis_and_limits(self):
+        data = general_embeds.build_faq().to_embed().to_dict()
+        self.assertIn('𝙿𝚁𝙴𝙶𝚄𝙽𝚃𝙰𝚂', data['title'])
+        self.assertEqual(data['footer']['text'], BRAND_FOOTER)
+        self.assertEqual(len(data['fields']), 7)
+        text = data['title'] + data['description'] + ''.join(field['name'] + field['value'] for field in data['fields'])
+        ids = CUSTOM_EMOJI_PATTERN.findall(text)
+        self.assertEqual(len(ids), len(set(ids)))
+        self.assertEqual(len(ids), 9)
+        self.assertLess(len(text) + len(BRAND_FOOTER), 6000)
+
+    def test_faq_install_does_not_overwrite_existing_embeds_or_custom_faq(self):
+        documents = {'reglas': {'title': 'Custom rules'}}
+        with patch('general_embeds.read_json', return_value=documents), patch('general_embeds.write_json') as save:
+            general_embeds.ensure_faq()
+        self.assertEqual(documents['reglas'], {'title': 'Custom rules'})
+        self.assertIn('faq', documents)
+        save.assert_called_once()
+        documents['faq'] = {'title': 'Edited FAQ'}
+        with patch('general_embeds.read_json', return_value=documents), patch('general_embeds.write_json') as save:
+            general_embeds.ensure_faq()
+        save.assert_not_called()
+        self.assertEqual(documents['faq']['title'], 'Edited FAQ')
+
+    def test_ticket_emojis_migration_preserves_labels_and_descriptions(self):
+        options = {key: {'label': 'Custom label', 'description': 'Custom text', 'emoji': 'old'}
+                   for key in TICKET_OPTION_EMOJIS}
+        with patch('common.read_json', side_effect=[{}, options]), patch('common.write_json') as save:
+            update_ticket_option_emojis()
+        for key, option in options.items():
+            self.assertEqual(option, {'label': 'Custom label', 'description': 'Custom text', 'emoji': TICKET_OPTION_EMOJIS[key]})
+        self.assertEqual(len(set(option['emoji'] for option in options.values())), 5)
+        self.assertEqual(save.call_count, 2)
+        with patch('common.read_json', return_value={'ticket-option-emojis-2026-10-03-v1': True}), patch('common.write_json') as save:
+            update_ticket_option_emojis()
+        save.assert_not_called()
+
+    def test_default_ticket_options_use_only_server_emojis(self):
+        for key, option in ticket.ticket_options.items():
+            self.assertEqual(option['emoji'], TICKET_OPTION_EMOJIS[key])
+            self.assertIsNotNone(CUSTOM_EMOJI_PATTERN.fullmatch(option['emoji']))
+
     def check_footer(self, embed):
         self.assertEqual(embed.footer.text, BRAND_FOOTER)
         self.assertEqual(embed.footer.icon_url, BRAND_LOGO)

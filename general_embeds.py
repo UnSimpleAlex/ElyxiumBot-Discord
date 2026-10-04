@@ -3,7 +3,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView, StudioEmbed
+from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView, StudioEmbed, SERVER_EMOJIS, BRAND_FOOTER, BRAND_LOGO
 
 
 EMBEDS_STORAGE_FILE = "data/embeds_storage.json"
@@ -107,6 +107,34 @@ class EmbedBuilder:
         if self.timestamp:
             info["Timestamp"] = "Activado"
         return info
+
+
+def build_faq():
+    builder = EmbedBuilder()
+    builder.title = f"{SERVER_EMOJIS['badge']} 𝙿𝚁𝙴𝙶𝚄𝙽𝚃𝙰𝚂 𝙵𝚁𝙴𝙲𝚄𝙴𝙽𝚃𝙴𝚂"
+    builder.description = f"{SERVER_EMOJIS['community']} **RESUELVE TUS DUDAS SOBRE ELYXIUM STUDIO**\n\nEncuentra aquí las respuestas a las consultas más habituales de nuestra comunidad."
+    builder.color = '#26B99A'
+    builder.thumbnail_url = BRAND_LOGO
+    builder.footer_text, builder.footer_icon = BRAND_FOOTER, BRAND_LOGO
+    questions = (
+        ('shield', '¿CÓMO ACCEDO A LOS CANALES?', 'Completa la **VERIFICACIÓN** del servidor. Presiona **VERIFICAR**, revisa el código de la imagen y usa **INGRESAR CÓDIGO** para recibir tu rol.'),
+        ('key', '¿QUÉ HAGO SI NO RECIBO EL CÓDIGO?', 'Revisa tus mensajes privados y permite mensajes del servidor. Si el código venció, solicita uno nuevo. **NO COMPARTAS TU CÓDIGO** con otras personas.'),
+        ('wrench', '¿CÓMO CONTACTO AL EQUIPO DE SOPORTE?', 'Abre un **TICKET** y elige la categoría que corresponda. Explica tu consulta con detalles y adjunta capturas si ayudan. No compartas contraseñas ni datos sensibles.'),
+        ('document', '¿DÓNDE PUEDO CONSULTAR LAS NORMAS?', 'Lee el embed de **NORMAS** publicado en el servidor antes de participar. Se aplica a los canales de texto, voz, tickets y actividades de la comunidad.'),
+        ('pencil', '¿CÓMO ENVÍO UNA SUGERENCIA?', 'Usa el botón **SUGERIR** del panel de sugerencias. La comunidad podrá votar tu propuesta y el staff la revisará. Los votos no garantizan su aceptación.'),
+        ('youtube', '¿PUEDO COMPARTIR MIS DIRECTOS Y VIDEOS?', 'Los roles **STREAMER** o **YOUTUBER** autorizados pueden usar el panel de creadores en el canal configurado. Se admiten enlaces de **YOUTUBE, TWITCH, KICK Y TIKTOK**.'),
+        ('warning', '¿QUÉ HAGO SI UN BOTÓN NO FUNCIONA?', 'Vuelve a intentarlo desde el panel más reciente. Si el problema continúa, avisa al staff con una captura y el nombre del botón. **NUNCA ENVÍES TU CONTRASEÑA O TOKEN**.'),
+    )
+    builder.fields = [{'name': f'{SERVER_EMOJIS[key]} {question}', 'value': answer + '\n\u200b', 'inline': False}
+                      for key, question, answer in questions]
+    return builder
+
+
+def ensure_faq():
+    documents = read_json(EMBEDS_STORAGE_FILE, {})
+    if 'faq' not in documents:
+        documents['faq'] = build_faq().to_json()
+        write_json(EMBEDS_STORAGE_FILE, documents)
 
 
 def count_embeds():
@@ -302,6 +330,7 @@ class AddEmbedFieldModal(discord.ui.Modal):
 
 
 def setup(bot, admin_role_id):
+    ensure_faq()
     load_embeds_storage()
     admin_only = admin_app_check(admin_role_id)
 

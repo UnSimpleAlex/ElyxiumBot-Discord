@@ -11,6 +11,24 @@ Bot de Discord para Elyxium Studio con sistemas de embeds, tickets, verificacion
 - Persistencia MySQL asincrona con copias JSON locales en `data/`.
 - Sincronizacion de comandos slash global y por servidor.
 - Anuncios de directos y videos para roles Streamer/YouTuber.
+- FAQ editable, guardada con el ID `faq`, con preguntas frecuentes de la comunidad.
+
+Para publicar o editar las preguntas frecuentes:
+
+```txt
+/embed_enviar canal:#faq embed_id:faq
+/editar_embed embed_id:faq
+```
+
+El FAQ se crea al arrancar solo si no existe, sin sobrescribir embeds ni ediciones.
+Las opciones de tickets usan emojis distintos del servidor para soporte, consulta,
+reportes, sugerencias y otras consultas. La actualizacion inicial cambia solo los emojis,
+preservando los titulos y descripciones de cada opcion. Reenvia el panel de tickets
+para actualizar el selector de un mensaje antiguo:
+
+```txt
+/ticket_enviar canal:#tickets config_id:ticket_1
+```
 
 Los embeds siempre conservan el titulo nativo de Discord para mantener su tamaño.
 Los titulos llevan un emoji del servidor antes del texto. Ese emoji no se repite

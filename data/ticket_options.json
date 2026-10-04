@@ -2,26 +2,26 @@
   "soporte": {
     "label": "Soporte Técnico",
     "description": "Ayuda con problemas técnicos",
-    "emoji": "🛠️"
+    "emoji": "<:12009211066101309941:1552328661338689636>"
   },
   "consulta": {
     "label": "Consulta General",
     "description": "Información general del proyecto",
-    "emoji": "💎"
+    "emoji": "<:1418788298029273125:1552144675413172284>"
   },
   "reportar": {
     "label": "Reportar Problema",
     "description": "Reportar un problema o bug",
-    "emoji": "⚠️"
+    "emoji": "<:1418788295361429564:1552144656786002041>"
   },
   "sugerencia": {
     "label": "Sugerencia",
     "description": "Enviar una sugerencia o idea",
-    "emoji": "📝"
+    "emoji": "<:1366121378494812271:1555793470545862756>"
   },
   "otro": {
     "label": "Otro",
     "description": "Cualquier otra consulta",
-    "emoji": "❓"
+    "emoji": "<:975766369503170630:1555793559565893712>"
   }
 }

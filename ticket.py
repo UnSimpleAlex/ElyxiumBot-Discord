@@ -7,7 +7,7 @@ import io
 from typing import Optional
 from datetime import datetime
 
-from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView, StudioEmbed, TICKET_BANNER
+from common import configure_console, ensure_data_dir, write_json, read_json, ResponsiveView, StudioEmbed, TICKET_BANNER, TICKET_OPTION_EMOJIS, SERVER_EMOJIS
 
 
 configure_console()
@@ -31,27 +31,27 @@ ticket_options = {
     "soporte": {
         "label": "Soporte Técnico",
         "description": "Ayuda con problemas técnicos",
-        "emoji": "🛠️"
+        "emoji": TICKET_OPTION_EMOJIS['soporte']
     },
     "consulta": {
         "label": "Consulta General",
         "description": "Información general del proyecto",
-        "emoji": "💎"
+        "emoji": TICKET_OPTION_EMOJIS['consulta']
     },
     "reportar": {
         "label": "Reportar Problema",
         "description": "Reportar un problema o bug",
-        "emoji": "⚠️"
+        "emoji": TICKET_OPTION_EMOJIS['reportar']
     },
     "sugerencia": {
         "label": "Sugerencia",
         "description": "Enviar una sugerencia o idea",
-        "emoji": "📝"
+        "emoji": TICKET_OPTION_EMOJIS['sugerencia']
     },
     "otro": {
         "label": "Otro",
         "description": "Cualquier otra consulta",
-        "emoji": "❓"
+        "emoji": TICKET_OPTION_EMOJIS['otro']
     }
 }
 
@@ -868,8 +868,7 @@ def setup_ticket_commands(bot):
         if category_counts:
             category_text = []
             for category, count in category_counts.items():
-                emoji_map = {'soporte': '🛠️', 'consulta': '💎', 'reportar': '⚠️', 'sugerencia': '📝', 'otro': '❓'}
-                emoji = emoji_map.get(category, '❓')
+                emoji = ticket_options.get(category, {}).get('emoji', SERVER_EMOJIS['document'])
                 category_text.append(f"{emoji} {category.title()}: {count}")
             
             embed.add_field(name="📈 Por Categoría", value="\n".join(category_text), inline=False)
