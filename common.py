@@ -14,6 +14,7 @@ DATA_DIR = Path("data")
 BRAND_FOOTER = '© Elyxium Studio Copyright 2026'
 BRAND_LOGO = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1790138294/IsotipoSinFondo.png'
 TICKET_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791069402/11f5e871-f272-4896-bea5-9564d8b268d5.png'
+FAQ_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791075301/d26f357d-d37d-4c81-b3f2-9fe7cf55ff0a.png'
 VERIFICATION_BANNER = 'https://res.cloudinary.com/y08rn1qr/image/upload/v1791069538/5011a91b-0071-461f-aed7-7628c445bd4c.png'
 SERVER_EMOJIS = {
     'document': '<:1418788298029273125:1552144675413172284>',
@@ -260,6 +261,21 @@ def update_ticket_option_emojis():
             options[key]['emoji'] = emoji
     if options:
         write_json(path, options)
+    migrations[version] = True
+    write_json(marker_path, migrations)
+
+
+def update_faq_banner():
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'faq-banner-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    path = DATA_DIR / 'embeds_storage.json'
+    documents = read_json(path, {})
+    if isinstance(documents.get('faq'), dict):
+        documents['faq']['image_url'] = FAQ_BANNER
+        write_json(path, documents)
     migrations[version] = True
     write_json(marker_path, migrations)
 

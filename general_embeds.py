@@ -3,7 +3,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 
-from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView, StudioEmbed, SERVER_EMOJIS, BRAND_FOOTER, BRAND_LOGO
+from common import admin_app_check, parse_hex_color, read_json, write_json, ResponsiveView, StudioEmbed, SERVER_EMOJIS, BRAND_FOOTER, BRAND_LOGO, FAQ_BANNER
 
 
 EMBEDS_STORAGE_FILE = "data/embeds_storage.json"
@@ -115,6 +115,7 @@ def build_faq():
     builder.description = f"{SERVER_EMOJIS['community']} **RESUELVE TUS DUDAS SOBRE ELYXIUM STUDIO**\n\nEncuentra aquí las respuestas a las consultas más habituales de nuestra comunidad."
     builder.color = '#26B99A'
     builder.thumbnail_url = BRAND_LOGO
+    builder.image_url = FAQ_BANNER
     builder.footer_text, builder.footer_icon = BRAND_FOOTER, BRAND_LOGO
     questions = (
         ('shield', '¿CÓMO ACCEDO A LOS CANALES?', 'Completa la **VERIFICACIÓN** del servidor. Presiona **VERIFICAR**, revisa el código de la imagen y usa **INGRESAR CÓDIGO** para recibir tu rol.'),

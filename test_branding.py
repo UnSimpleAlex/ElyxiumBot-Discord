@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from common import update_verification_emojis, update_verification_color, update_ticket_option_emojis, TICKET_OPTION_EMOJIS
+from common import update_verification_emojis, update_verification_color, update_ticket_option_emojis, TICKET_OPTION_EMOJIS, FAQ_BANNER, update_faq_banner
 
 import captcha
 import general_embeds
@@ -12,6 +12,19 @@ from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS
 
 
 class BrandingTests(unittest.TestCase):
+    def test_faq_banner_migration_changes_only_faq_image_once(self):
+        documents = {'faq': {'title': 'Custom FAQ', 'description': 'Custom text', 'image_url': None},
+                     'reglas': {'image_url': 'rules-banner'}}
+        with patch('common.read_json', side_effect=[{}, documents]), patch('common.write_json') as save:
+            update_faq_banner()
+        self.assertEqual(documents['faq'], {'title': 'Custom FAQ', 'description': 'Custom text', 'image_url': FAQ_BANNER})
+        self.assertEqual(documents['reglas']['image_url'], 'rules-banner')
+        self.assertEqual(general_embeds.build_faq().to_embed().image.url, FAQ_BANNER)
+        self.assertEqual(save.call_count, 2)
+        with patch('common.read_json', return_value={'faq-banner-2026-10-03-v1': True}), patch('common.write_json') as save:
+            update_faq_banner()
+        save.assert_not_called()
+
     def test_faq_native_title_footer_unique_server_emojis_and_limits(self):
         data = general_embeds.build_faq().to_embed().to_dict()
         self.assertIn('𝙿𝚁𝙴𝙶𝚄𝙽𝚃𝙰𝚂', data['title'])
