@@ -114,7 +114,6 @@ def build_faq():
     builder.title = f"{SERVER_EMOJIS['badge']} 𝙿𝚁𝙴𝙶𝚄𝙽𝚃𝙰𝚂 𝙵𝚁𝙴𝙲𝚄𝙴𝙽𝚃𝙴𝚂"
     builder.description = f"{SERVER_EMOJIS['community']} **RESUELVE TUS DUDAS SOBRE ELYXIUM STUDIO**\n\nEncuentra aquí las respuestas a las consultas más habituales de nuestra comunidad."
     builder.color = '#26B99A'
-    builder.thumbnail_url = BRAND_LOGO
     builder.image_url = FAQ_BANNER
     builder.footer_text, builder.footer_icon = BRAND_FOOTER, BRAND_LOGO
     questions = (

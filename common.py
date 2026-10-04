@@ -280,6 +280,22 @@ def update_faq_banner():
     write_json(marker_path, migrations)
 
 
+def update_faq_profile():
+    marker_path = DATA_DIR / 'appearance_migrations.json'
+    migrations = read_json(marker_path, {})
+    version = 'faq-without-profile-2026-10-03-v1'
+    if migrations.get(version):
+        return
+    path = DATA_DIR / 'embeds_storage.json'
+    documents = read_json(path, {})
+    if isinstance(documents.get('faq'), dict):
+        for name in ('thumbnail_url', 'author_name', 'author_icon'):
+            documents['faq'][name] = None
+        write_json(path, documents)
+    migrations[version] = True
+    write_json(marker_path, migrations)
+
+
 def parse_hex_color(color, fallback=discord.Color.blue()):
     if not color:
         return fallback

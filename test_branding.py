@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
-from common import update_verification_emojis, update_verification_color, update_ticket_option_emojis, TICKET_OPTION_EMOJIS, FAQ_BANNER, update_faq_banner
+from common import update_verification_emojis, update_verification_color, update_ticket_option_emojis, TICKET_OPTION_EMOJIS, FAQ_BANNER, update_faq_banner, update_faq_profile
 
 import captcha
 import general_embeds
@@ -12,6 +12,21 @@ from common import BRAND_FOOTER, BRAND_LOGO, CUSTOM_EMOJI_PATTERN, SERVER_EMOJIS
 
 
 class BrandingTests(unittest.TestCase):
+    def test_faq_has_banner_without_avatar_and_preserves_content(self):
+        documents = {'faq': {'title': 'Custom title', 'image_url': FAQ_BANNER, 'thumbnail_url': 'old',
+                             'author_name': 'Old profile', 'author_icon': 'old-icon'}, 'reglas': {'thumbnail_url': 'keep'}}
+        with patch('common.read_json', side_effect=[{}, documents]), patch('common.write_json'):
+            update_faq_profile()
+        self.assertIsNone(documents['faq']['thumbnail_url'])
+        self.assertIsNone(documents['faq']['author_icon'])
+        self.assertEqual(documents['faq']['image_url'], FAQ_BANNER)
+        self.assertEqual(documents['faq']['title'], 'Custom title')
+        self.assertEqual(documents['reglas']['thumbnail_url'], 'keep')
+        data = general_embeds.build_faq().to_embed().to_dict()
+        self.assertNotIn('thumbnail', data)
+        self.assertNotIn('author', data)
+        self.assertEqual(data['image']['url'], FAQ_BANNER)
+
     def test_faq_banner_migration_changes_only_faq_image_once(self):
         documents = {'faq': {'title': 'Custom FAQ', 'description': 'Custom text', 'image_url': None},
                      'reglas': {'image_url': 'rules-banner'}}
