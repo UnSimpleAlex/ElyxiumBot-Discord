@@ -129,6 +129,55 @@ class CreatorService:
         self.announcements = read_json(STATE_FILE, {})
         self.lock = asyncio.Lock()
         self.panel_cooldowns = {}
+        self.panel_views = {}
+
+    def restore(self):
+        for guild_id, config in self.config.items():
+            if config.get('enabled') and config.get('panel_message_id'):
+                view = CreatorView(self, int(guild_id), config.get('panel_channel_id', config['channel_id']))
+                self.panel_views[int(guild_id)] = view
+                self.bot.add_view(view, message_id=config['panel_message_id'])
+
+    async def ensure_panel(self, guild_id):
+        config = self.config[str(guild_id)]
+        channel = self.bot.get_channel(config['channel_id']) or await self.bot.fetch_channel(config['channel_id'])
+        old_id = config.get('panel_message_id')
+        old_channel_id = config.get('panel_channel_id', config['channel_id'])
+        view = self.panel_views.get(guild_id) or CreatorView(self, guild_id, channel.id)
+        if old_id and old_channel_id == channel.id:
+            try:
+                message = await channel.fetch_message(old_id)
+                await message.edit(embed=render_panel(), view=view)
+                self.panel_views[guild_id] = view
+                return
+            except discord.NotFound:
+                pass
+        view = CreatorView(self, guild_id, channel.id)
+        message = await channel.send(embed=render_panel(), view=view,
+                                     allowed_mentions=discord.AllowedMentions.none())
+        previous = self.panel_views.get(guild_id)
+        if previous:
+            previous.stop()
+        self.panel_views[guild_id] = view
+        config['panel_message_id'], config['panel_channel_id'] = message.id, channel.id
+        write_json(CONFIG_FILE, self.config)
+        if old_id and old_channel_id != channel.id:
+            try:
+                old_channel = self.bot.get_channel(old_channel_id) or await self.bot.fetch_channel(old_channel_id)
+                await old_channel.get_partial_message(old_id).delete()
+            except discord.NotFound:
+                pass
+            except discord.HTTPException:
+                logging.exception('Could not remove retired creator panel')
+
+    async def ensure_panels(self):
+        async with self.lock:
+            for guild_id, config in self.config.items():
+                if config.get('enabled'):
+                    try:
+                        await self.ensure_panel(int(guild_id))
+                    except discord.HTTPException:
+                        logging.exception('Could not restore creator panel in guild %s', guild_id)
 
     def authorized(self, user, guild_id, channel_id):
         config = self.config.get(str(guild_id), {})
@@ -148,8 +197,7 @@ class CreatorService:
                 return 'Espera diez segundos antes de solicitar otro panel.'
             if not administrator:
                 self.panel_cooldowns[guild_id] = now + 10
-            await channel.send(embed=render_panel(), view=CreatorView(self, user.id, guild_id, channel.id),
-                               delete_after=180, allowed_mentions=discord.AllowedMentions.none())
+            await self.ensure_panel(guild_id)
         return 'Panel de creadores publicado.'
 
     async def publish(self, interaction, modal):
@@ -201,26 +249,27 @@ class CreatorService:
 
 
 class CreatorView(ResponsiveView):
-    def __init__(self, service, author_id, guild_id, channel_id):
-        super().__init__(timeout=180)
-        self.service, self.author_id, self.guild_id, self.channel_id = service, author_id, guild_id, channel_id
-        self.deadline = time.monotonic() + 180
+    def __init__(self, service, guild_id, channel_id):
+        super().__init__(timeout=None)
+        self.service, self.guild_id, self.channel_id = service, guild_id, channel_id
         self.live.emoji = discord.PartialEmoji.from_str(SERVER_EMOJIS['announcement'])
         self.video.emoji = discord.PartialEmoji.from_str(SERVER_EMOJIS['pencil'])
 
     async def open_form(self, interaction, kind):
-        if (interaction.user.id != self.author_id or interaction.guild_id != self.guild_id
-                or interaction.channel_id != self.channel_id or time.monotonic() > self.deadline
+        config = self.service.config.get(str(self.guild_id), {})
+        if (interaction.guild_id != self.guild_id or interaction.channel_id != self.channel_id
+                or interaction.message.id != config.get('panel_message_id')
+                or self.channel_id != config.get('channel_id')
                 or not self.service.authorized(interaction.user, self.guild_id, self.channel_id)):
-            await interaction.response.send_message('Este panel venció, pertenece a otra persona o ya no tienes acceso.', ephemeral=True)
+            await interaction.response.send_message('No tienes acceso o este panel ya no está activo.', ephemeral=True)
             return
-        await interaction.response.send_modal(CreatorModal(self.service, self.author_id, self.guild_id, self.channel_id, kind))
+        await interaction.response.send_modal(CreatorModal(self.service, interaction.user.id, self.guild_id, self.channel_id, kind))
 
-    @discord.ui.button(label='Directo', style=discord.ButtonStyle.success)
+    @discord.ui.button(label='Directo', style=discord.ButtonStyle.success, custom_id='creators:live')
     async def live(self, interaction, button):
         await self.open_form(interaction, 'directo')
 
-    @discord.ui.button(label='Video', style=discord.ButtonStyle.primary)
+    @discord.ui.button(label='Video', style=discord.ButtonStyle.primary, custom_id='creators:video')
     async def video(self, interaction, button):
         await self.open_form(interaction, 'video')
 
@@ -252,6 +301,8 @@ class CreatorModal(discord.ui.Modal):
 def setup(bot):
     service = CreatorService(bot)
     bot.creators = service
+    service.restore()
+    bot.add_listener(service.ensure_panels, 'on_ready')
 
     @app_commands.guild_only()
     async def slash(interaction: discord.Interaction):
@@ -298,9 +349,10 @@ def setup(bot):
             return
         await interaction.response.defer(ephemeral=True)
         async with service.lock:
-            service.config[str(interaction.guild_id)] = {'enabled': True, 'channel_id': canal.id,
+            service.config[str(interaction.guild_id)] = {**service.config.get(str(interaction.guild_id), {}), 'enabled': True, 'channel_id': canal.id,
                 'role_ids': list({rol_streamer.id, rol_yt.id}), 'cooldown': espera_segundos}
             write_json(CONFIG_FILE, service.config)
+            await service.ensure_panel(interaction.guild_id)
         await interaction.followup.send(f'Anuncios activados en {canal.mention} para {rol_streamer.mention} y {rol_yt.mention}. Espera entre anuncios: {espera_segundos} segundos.', ephemeral=True)
 
     @group.command(name='desactivar', description='Desactiva anuncios conservando la configuración')

@@ -32,8 +32,11 @@ Los miembros de cualquiera de esos roles pueden usar `/directo`, `!directo`, `/v
 o `!video` en ese canal. Los administradores pueden invocarlos desde otros canales,
 pero el anuncio siempre se publica en el canal configurado.
 
-Se muestra un embed temporal con dos botones: **Directo** y **Video**. Solo el autor
-del comando puede abrir sus formularios. El enlace se valida antes de publicar otro
+Se muestra un embed permanente con dos botones: **Directo** y **Video**. Cualquier
+miembro con uno de los roles autorizados (o Administrador) puede abrir sus formularios.
+El panel se conserva en el canal configurado, se reutiliza sin duplicados y sus botones
+se restauran al reiniciar. Si fue eliminado, se vuelve a crear. Solo el formulario abierto
+tiene un limite de tres minutos y pertenece a quien lo abrio. El enlace se valida antes de publicar otro
 embed, con el emoji de la plataforma, enlace y footer de Elyxium Studio.
 
 El panel y los anuncios usan color morado `#9B59B6` y el banner de creadores.

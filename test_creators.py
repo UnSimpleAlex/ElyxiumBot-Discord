@@ -94,6 +94,9 @@ class LinkTests(unittest.IsolatedAsyncioTestCase):
 
 class CreatorTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
+        writer = patch('creators.write_json')
+        writer.start()
+        self.addCleanup(writer.stop)
         with patch('creators.read_json', return_value={}):
             self.service = creators.CreatorService(MagicMock())
         self.service.config = {'10': {'enabled': True, 'channel_id': 100, 'role_ids': [30, 40], 'cooldown': 300}}
@@ -103,9 +106,12 @@ class CreatorTests(unittest.IsolatedAsyncioTestCase):
         self.user.guild = SimpleNamespace(id=10)
         self.user.guild_permissions = SimpleNamespace(administrator=False)
         self.user.roles = [SimpleNamespace(id=30)]
-        self.channel = SimpleNamespace(id=100, mention='<#100>', send=AsyncMock(return_value=SimpleNamespace(id=200)))
+        self.message = SimpleNamespace(id=200, edit=AsyncMock())
+        self.channel = SimpleNamespace(id=100, mention='<#100>', send=AsyncMock(return_value=self.message),
+                                       fetch_message=AsyncMock(return_value=self.message))
         self.service.bot.get_channel.return_value = self.channel
         self.interaction = SimpleNamespace(user=self.user, guild_id=10, channel_id=100,
+            message=SimpleNamespace(id=200),
             response=SimpleNamespace(defer=AsyncMock(), send_message=AsyncMock(), send_modal=AsyncMock()),
             followup=SimpleNamespace(send=AsyncMock()))
         self.modal = SimpleNamespace(author_id=1, guild_id=10, channel_id=100,
@@ -117,7 +123,8 @@ class CreatorTests(unittest.IsolatedAsyncioTestCase):
         self.service.panel_cooldowns[10] = time.monotonic() + 10
         await self.service.panel(self.user, 10, self.channel)
         await self.service.panel(self.user, 10, self.channel)
-        self.assertEqual(self.channel.send.await_count, 2)
+        self.assertEqual(self.channel.send.await_count, 1)
+        self.message.edit.assert_awaited_once()
         self.channel.send.reset_mock()
         self.service.announcements['10:1'] = {'created_at': time.time()}
         second = SimpleNamespace(**vars(self.modal))
@@ -173,17 +180,47 @@ class CreatorTests(unittest.IsolatedAsyncioTestCase):
         await self.service.panel(self.user, 10, self.channel)
         self.channel.send.assert_awaited_once()
 
-    async def test_owner_only_button_and_role_recheck(self):
-        view = creators.CreatorView(self.service, 2, 10, 100)
+    async def test_shared_panel_checks_roles_on_click_and_submission(self):
+        self.service.config['10']['panel_message_id'] = 200
+        view = creators.CreatorView(self.service, 10, 100)
+        self.user.roles = []
         await view.live.callback(self.interaction)
         self.interaction.response.send_modal.assert_not_awaited()
-        view.author_id = 1
+        self.user.roles = [SimpleNamespace(id=40)]
         await view.live.callback(self.interaction)
         self.interaction.response.send_modal.assert_awaited_once()
         self.user.roles = []
         with patch('creators.write_json'):
             await self.service.publish(self.interaction, self.modal)
         self.channel.send.assert_not_awaited()
+
+    async def test_panel_persistent_and_registered_after_restart(self):
+        await self.service.panel(self.user, 10, self.channel)
+        kwargs = self.channel.send.await_args.kwargs
+        self.assertNotIn('delete_after', kwargs)
+        self.assertTrue(kwargs['view'].is_persistent())
+        with patch('creators.read_json', side_effect=[self.service.config, {}]):
+            restored = creators.CreatorService(self.service.bot)
+        restored.restore()
+        restored.bot.add_view.assert_called_once()
+        self.assertEqual(restored.bot.add_view.call_args.kwargs['message_id'], 200)
+        await restored.ensure_panels()
+        self.channel.send.assert_awaited_once()
+        self.message.edit.assert_awaited_once()
+
+    async def test_deleted_panel_recreated_on_ready(self):
+        self.service.config['10']['panel_message_id'] = 123
+        self.channel.fetch_message.side_effect = discord.NotFound(SimpleNamespace(status=404, reason='Not Found'), 'Deleted')
+        await self.service.ensure_panels()
+        self.channel.send.assert_awaited_once()
+        self.assertEqual(self.service.config['10']['panel_message_id'], 200)
+
+    async def test_retired_panel_button_rejected(self):
+        self.service.config['10']['panel_message_id'] = 123
+        view = creators.CreatorView(self.service, 10, 100)
+        await view.video.callback(self.interaction)
+        self.interaction.response.send_modal.assert_not_awaited()
+        self.interaction.response.send_message.assert_awaited_once()
 
     async def test_publish_persisted_and_duplicate_form_rejected(self):
         with patch('creators.write_json') as save:
