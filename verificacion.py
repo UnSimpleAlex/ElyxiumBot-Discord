@@ -6,7 +6,7 @@ from typing import Optional
 import asyncio
 import logging
 
-from common import configure_console, read_json, write_json, ResponsiveView, StudioEmbed, VERIFICATION_BANNER
+from common import configure_console, read_json, write_json, ResponsiveView, StudioEmbed, VERIFICATION_BANNER, SERVER_EMOJIS, CUSTOM_EMOJI_PATTERN
 
 
 configure_console()
@@ -136,6 +136,14 @@ def load_verification_buttons():
     try:
         if os.path.exists(VERIFICATION_BUTTONS_FILE):
             verification_buttons = read_json(VERIFICATION_BUTTONS_FILE, {})
+            changed = False
+            for verification_id in set(verification_embeds) | set(verification_buttons):
+                button = verification_buttons.setdefault(verification_id, {})
+                if not CUSTOM_EMOJI_PATTERN.fullmatch(str(button.get('emoji') or '')):
+                    button['emoji'] = SERVER_EMOJIS['check']
+                    changed = True
+            if changed:
+                save_verification_buttons()
             print(f"✅ {len(verification_buttons)} botones de verificación cargados")
         else:
             verification_buttons = {}
@@ -144,7 +152,8 @@ def load_verification_buttons():
         verification_buttons = {}
 
 def get_verification_button_emoji(verification_id):
-    return verification_buttons.get(verification_id, {}).get("emoji", "✅")
+    emoji = verification_buttons.get(verification_id, {}).get('emoji')
+    return emoji if CUSTOM_EMOJI_PATTERN.fullmatch(str(emoji or '')) else SERVER_EMOJIS['check']
 
 def parse_button_emoji(emoji_text):
     if not emoji_text:
@@ -155,13 +164,14 @@ def parse_button_emoji(emoji_text):
         return emoji_text
 
 class VerificationView(ResponsiveView):
-    def __init__(self, role_id: int, custom_id: str = None, use_captcha: bool = False, button_emoji: str = "✅"):
+    def __init__(self, role_id: int, custom_id: str = None, use_captcha: bool = False, button_emoji: str = SERVER_EMOJIS['check']):
         super().__init__(timeout=None)
         self.role_id = role_id
         self.use_captcha = use_captcha
         if custom_id:
             self.verify.custom_id = custom_id
-        self.verify.emoji = parse_button_emoji(button_emoji)
+        emoji = button_emoji if CUSTOM_EMOJI_PATTERN.fullmatch(str(button_emoji or '')) else SERVER_EMOJIS['check']
+        self.verify.emoji = parse_button_emoji(emoji)
     
     @discord.ui.button(label="Verificar", style=discord.ButtonStyle.success, custom_id="verify_button")
     async def verify(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -488,8 +498,8 @@ class EditVerificationButtonEmojiModal(discord.ui.Modal):
         self.verification_id = verification_id
         self.emoji_input = discord.ui.TextInput(
             label="Emoji del botón",
-            default=current_emoji or "✅",
-            placeholder="Ej: ✅ o <:verificar:123456789012345678>",
+            default=current_emoji or SERVER_EMOJIS['check'],
+            placeholder="Emoji del servidor: <:nombre:identificador>",
             max_length=100,
             required=True
         )
@@ -497,6 +507,9 @@ class EditVerificationButtonEmojiModal(discord.ui.Modal):
 
     async def on_submit(self, interaction: discord.Interaction):
         emoji = self.emoji_input.value.strip()
+        if not CUSTOM_EMOJI_PATTERN.fullmatch(emoji):
+            await interaction.response.send_message('Usa un emoji personalizado del servidor, no un emoji estándar.', ephemeral=True)
+            return
         verification_buttons[self.verification_id] = {"emoji": emoji}
         save_verification_buttons()
 

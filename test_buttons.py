@@ -5,13 +5,31 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
 from verificacion import VerificationView
-from common import ResponsiveView
+from common import ResponsiveView, SERVER_EMOJIS
 import captcha
 import verificacion
 from discord.ext import commands
 
 
 class VerificationButtonTests(unittest.IsolatedAsyncioTestCase):
+    async def test_verification_button_uses_server_emoji_for_defaults_and_legacy_unicode(self):
+        for emoji in (None, '✅', SERVER_EMOJIS['check']):
+            view = VerificationView(20, button_emoji=emoji)
+            self.assertEqual(str(view.verify.emoji), SERVER_EMOJIS['check'])
+            self.assertIsNotNone(view.verify.emoji.id)
+
+    async def test_saved_button_migration_preserves_custom_emojis_and_properties(self):
+        stored = {'verification_1': {'emoji': '✅', 'label': 'Verificar'},
+                  'verification_2': {'emoji': SERVER_EMOJIS['shield']}}
+        with patch('verificacion.verification_buttons', {}), patch.dict(verificacion.verification_embeds, {'verification_3': {}}, clear=True), \
+             patch('verificacion.os.path.exists', return_value=True), patch('verificacion.read_json', return_value=stored), \
+             patch('verificacion.save_verification_buttons') as save:
+            verificacion.load_verification_buttons()
+            self.assertEqual(stored['verification_1'], {'emoji': SERVER_EMOJIS['check'], 'label': 'Verificar'})
+            self.assertEqual(stored['verification_2']['emoji'], SERVER_EMOJIS['shield'])
+            self.assertEqual(stored['verification_3']['emoji'], SERVER_EMOJIS['check'])
+            save.assert_called_once()
+
     def interaction(self):
         role = MagicMock()
         role.id = 20
